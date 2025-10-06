@@ -14,10 +14,10 @@ Below are the **cleaned and clarified rules**, fully inlined here for Cursor.
 
 - Use ASCII characters only; avoid special characters or diacritics when possible.
 - Words are separated by spaces, dots (.), hyphens (-), or underscores (_). Consistency within a directory is preferred.
-- Years must be enclosed in parentheses () immediately following the title:  
+- Years must be enclosed in parentheses () immediately following the title:
   `Movie Title (1999).mkv`
 - **Season and episode numbering use the `SxxEyy` format** (e.g. `S01E02`) for TV series.
-- Multi‑episode TV files must list each episode number consecutively with no gaps:  
+- Multi‑episode TV files must list each episode number consecutively with no gaps:
   `Show Name - S01E01-E02 - <Episode Title 1> & <Episode Title 2>.mp4`
 - Avoid clutter like release group tags, resolution, codecs, or extra brackets in filenames unless they are clearly separated at the end.
 
@@ -37,15 +37,15 @@ The Matrix (1999).mkv
 **Why this matters:** Plex matches movies using `Title (Year)` as the canonical lookup key. Extra tags or incorrect formatting can break matching.
 
 **Rules:**
-- File name format:  
+- File name format:
   `Movie Title (Year).ext`
-- Directory format:  
+- Directory format:
   `Movie Title (Year)/Movie Title (Year).ext`
-- For multi‑part films (e.g., disc splits), use `- Part 1`, `- Part 2` suffixes:  
+- For multi‑part films (e.g., disc splits), use `- Part 1`, `- Part 2` suffixes:
   `The Lord of the Rings The Fellowship of the Ring (2001) - Part 1.mkv`
-- Year is mandatory for ambiguous titles (e.g., remakes):  
+- Year is mandatory for ambiguous titles (e.g., remakes):
   `Danger Mouse (1981).mp4` vs `Danger Mouse (2015).mp4`
-- Optional metadata like resolution or source can be appended **after** the core naming, separated by hyphens:  
+- Optional metadata like resolution or source can be appended **after** the core naming, separated by hyphens:
   `The Matrix (1999) - 1080p.mkv`
 
 Examples:
@@ -70,9 +70,9 @@ The Lord of the Rings The Fellowship of the Ring (2001)/The Lord of the Rings Th
 Show Name (Year)/Season 07/Show Name - S07E04 - Episode Title.mp4
 
 ```
-- **Single episode files:**  
+- **Single episode files:**
   `Paw Patrol - S03E10 - Pups Save Friendship Day.mp4`
-- **Multi‑episode files:** list episodes consecutively with hyphenated episode numbers, and both episode titles separated by an "&":  
+- **Multi‑episode files:** list episodes consecutively with hyphenated episode numbers, and both episode titles separated by an "&":
   `Paw Patrol - S03E03-E04 - Pups Save a Goldrush & Pups Save the Paw Patroller.mp4`
 - If multiple episodes are contained but **titles are incomplete or truncated**, the **titles take precedence** over numbering. The LLM should use fuzzy title matching and episode adjacency from the API to correct numbering.
 - **Anthology files** may contain multiple segments; sometimes **subtitles appear only once** in the filename. For example input:
@@ -165,5 +165,3 @@ Second pass fix:  01-02, 03, 04-05
 | Movie      | The Matrix (1999)               | The Matrix (1999).mkv |
 | TV        | Paw Patrol (2013)/Season 07     | Paw Patrol - S07E04 - Mighty Pups Charged Up Pups Vs Three Super Baddies.mp4 |
 | Music      | Daft Punk/Discovery (2001)     | Track01 - One More Time.mp3 |
-
-

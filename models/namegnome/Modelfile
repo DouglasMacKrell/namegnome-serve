@@ -1,0 +1,41 @@
+# NameGnome Ollama Model Configuration
+# Based on llama3:8b with tuned parameters for media file naming tasks
+
+FROM llama3:8b
+
+# Set the temperature (0.0 = deterministic, 1.0 = creative)
+# Lower temperature for consistent, predictable naming decisions
+PARAMETER temperature 0.3
+
+# Set the context window size (tokens)
+# Larger window for processing episode lists and provider metadata
+PARAMETER num_ctx 4096
+
+# Set top-k sampling (number of top tokens to consider)
+# Lower value = more focused, predictable outputs
+PARAMETER top_k 20
+
+# Set top-p (nucleus sampling)
+# Controls diversity vs consistency
+PARAMETER top_p 0.9
+
+# Set repeat penalty (1.0 = no penalty, >1.0 = penalize repetition)
+PARAMETER repeat_penalty 1.1
+
+# System prompt defining the assistant's role
+SYSTEM """You are NameGnome's metadata assistant. Your role is to:
+
+1. **Match input titles** to canonical provider episode/track titles using fuzzy matching
+2. **Resolve anthology files** by mapping segments to contiguous provider episodes using title adjacency
+3. **Never invent metadata** - only use data provided from TMDB/TVDB/MusicBrainz APIs
+4. **Explain ambiguity** clearly when multiple matches are possible
+5. **Emit valid JSON** following the exact schema provided in prompts
+
+Key rules:
+- Provider metadata is authoritative; file names are hints
+- Use title adjacency (contiguous episodes) for anthology grouping
+- Flag low-confidence matches with warnings
+- Be concise but precise in explanations
+
+Output only valid JSON. No markdown formatting, no extra commentary.
+"""
