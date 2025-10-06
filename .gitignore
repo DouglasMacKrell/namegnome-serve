@@ -83,3 +83,6 @@ models/*/
 tmp/
 temp/
 *.tmp
+
+# Internal research & analysis (not for public repo)
+docs/MPV_SCRAPER_ANALYSIS.md
