@@ -35,5 +35,14 @@ repos:
         args: ['--config-file', 'pyproject.toml']
         files: ^src/
 
-  # Note: pytest removed from pre-commit hooks to support TDD Red Phase workflow.
-  # Tests run in CI (GitHub Actions) which gates merges to develop/main.
+  # Test execution (blocks push if tests fail - allows TDD commits locally)
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        entry: poetry run pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: ['--no-cov', '-q', '--tb=short']
+        stages: [pre-push]
