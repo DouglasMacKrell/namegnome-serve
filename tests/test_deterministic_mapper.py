@@ -102,9 +102,9 @@ class TestDeterministicMapper:
 
         assert result is not None
         assert result.confidence >= 0.75  # High confidence
-        assert result.dst_path == "/movies/The Matrix (1999)/The Matrix (1999).mkv"
-        assert result.provider_id == "12345"
-        assert result.provider == "TMDB"
+        assert str(result.dst_path) == "/movies/The Matrix (1999)/The Matrix (1999).mkv"
+        assert result.sources[0].id == "12345"
+        assert result.sources[0].provider == "tmdb"
 
     @pytest.mark.asyncio
     async def test_map_music_exact_match(self):

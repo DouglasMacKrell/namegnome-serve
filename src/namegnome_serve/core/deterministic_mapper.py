@@ -117,8 +117,44 @@ class DeterministicMapper:
 
     async def _map_movie(self, media_file: MediaFile) -> PlanItem | None:
         """Map movie to TMDB entity."""
-        # TODO: Implement movie mapping
-        return None
+        if not media_file.parsed_title:
+            return None
+
+        # Search for movie by title and year
+        search_results = await self.tmdb.search_movie(
+            media_file.parsed_title, year=media_file.parsed_year
+        )
+
+        if not search_results:
+            return None
+
+        # If multiple results, require disambiguation
+        if len(search_results) > 1:
+            return None
+
+        movie = search_results[0]
+        movie_id = movie["id"]
+
+        # Get detailed movie information
+        movie_details = await self.tmdb.get_movie_details(movie_id)
+        if not movie_details:
+            return None
+
+        # Build destination path
+        movie_title = movie_details["title"]
+        movie_year = media_file.parsed_year or "Unknown"
+        dst_path = (
+            f"/movies/{movie_title} ({movie_year})/{movie_title} ({movie_year}).mkv"
+        )
+
+        return PlanItem(
+            src_path=media_file.path,
+            dst_path=Path(dst_path),
+            reason=f"Matched movie '{movie_title}' with TMDB",
+            confidence=1.0,  # High confidence for exact matches
+            sources=[SourceRef(provider="tmdb", id=str(movie_id))],
+            warnings=[],
+        )
 
     async def _map_music(self, media_file: MediaFile) -> PlanItem | None:
         """Map music to MusicBrainz entity."""
