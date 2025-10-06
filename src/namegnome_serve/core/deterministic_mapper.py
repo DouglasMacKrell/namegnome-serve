@@ -158,5 +158,45 @@ class DeterministicMapper:
 
     async def _map_music(self, media_file: MediaFile) -> PlanItem | None:
         """Map music to MusicBrainz entity."""
-        # TODO: Implement music mapping
-        return None
+        if not media_file.parsed_title or not media_file.parsed_artist:
+            return None
+
+        # Search for recording by title and artist
+        query = f"{media_file.parsed_title} AND artist:{media_file.parsed_artist}"
+        search_results = await self.musicbrainz.search_recording(query)
+
+        if not search_results:
+            return None
+
+        # If multiple results, require disambiguation
+        if len(search_results) > 1:
+            return None
+
+        recording = search_results[0]
+        recording_id = recording["id"]
+
+        # Get release group information if available
+        if recording.get("releases"):
+            release_id = recording["releases"][0]["id"]
+            await self.musicbrainz.get_release_group(release_id)
+
+        # Build destination path
+        artist_name = media_file.parsed_artist
+        track_title = media_file.parsed_title
+        album_title = media_file.parsed_album or "Unknown Album"
+        track_num = (
+            f"{media_file.parsed_track:02d}" if media_file.parsed_track else "01"
+        )
+
+        dst_path = (
+            f"/music/{artist_name}/{album_title}/{track_num} - {track_title}.flac"
+        )
+
+        return PlanItem(
+            src_path=media_file.path,
+            dst_path=Path(dst_path),
+            reason=f"Matched music '{track_title}' by '{artist_name}' with MusicBrainz",
+            confidence=1.0,  # High confidence for exact matches
+            sources=[SourceRef(provider="musicbrainz", id=recording_id)],
+            warnings=[],
+        )

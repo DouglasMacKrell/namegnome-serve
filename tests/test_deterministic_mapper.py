@@ -143,11 +143,11 @@ class TestDeterministicMapper:
         assert result is not None
         assert result.confidence >= 0.75  # High confidence
         assert (
-            result.dst_path
+            str(result.dst_path)
             == "/music/Queen/A Night at the Opera/01 - Bohemian Rhapsody.flac"
         )
-        assert result.provider_id == "rec-123"
-        assert result.provider == "MusicBrainz"
+        assert result.sources[0].id == "rec-123"
+        assert result.sources[0].provider == "musicbrainz"
 
     @pytest.mark.asyncio
     async def test_map_tv_show_ambiguous_match(self):
@@ -274,5 +274,6 @@ class TestDeterministicMapper:
         result = await mapper.map_media_file(media_file, "music")
 
         assert result is not None
-        assert result.album_title == "A Night at the Opera"
-        assert result.artist_name == "Queen"
+        # Album and artist should be in the destination path
+        assert "A Night at the Opera" in str(result.dst_path)
+        assert "Queen" in str(result.dst_path)
