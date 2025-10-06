@@ -33,6 +33,7 @@ ruff = "^0.13.3"
 mypy = "^1.18.2"
 pytest = "^8.4.2"
 pytest-cov = "^7.0.0"
+pre-commit = "^4.3.0"
 
 [tool.poetry]
 packages = [{include = "namegnome_serve", from = "src"}]
@@ -124,4 +125,3 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@abstractmethod",
 ]
-

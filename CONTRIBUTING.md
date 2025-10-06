@@ -68,20 +68,28 @@ For non-task commits:
 
 ### Before Committing
 
-Run these checks locally:
+**Pre-commit hooks are installed and will run automatically!** They will:
+- Format code with black
+- Lint with ruff
+- Type check with mypy (src/ only)
+- Run tests (without coverage check for speed)
+
+If you need to run checks manually:
 
 ```bash
-# Format code
+# Run all pre-commit hooks
+poetry run pre-commit run --all-files
+
+# Or run individual tools
 poetry run black .
-
-# Lint
 poetry run ruff check .
-
-# Type check
-poetry run mypy .
-
-# Run tests
+poetry run mypy src
 poetry run pytest --cov=namegnome_serve --cov-fail-under=80
+```
+
+To bypass pre-commit hooks (not recommended):
+```bash
+git commit --no-verify
 ```
 
 ### Requirements
@@ -115,13 +123,29 @@ Each new function/class requires:
 
 ## 🚫 Pre-Commit Hooks
 
-Pre-commit hooks enforce quality gates:
-- `black` formatting
-- `ruff` linting
-- `mypy` type checking
-- `pytest` with coverage threshold
+Pre-commit hooks are **automatically installed** when you run `poetry install` and enforce quality gates:
+- General file checks (trailing whitespace, EOF, YAML/JSON/TOML validation)
+- `black` code formatting
+- `ruff` linting with auto-fix
+- `mypy` type checking (src/ only)
+- `pytest` fast check (no coverage)
 
-**All checks must pass before commit.**
+**All checks must pass before commit.** If hooks fail, fix the issues and try again.
+
+### First-Time Setup
+If hooks aren't installed, run:
+```bash
+poetry run pre-commit install
+```
+
+### Manual Hook Execution
+```bash
+# Run all hooks on all files
+poetry run pre-commit run --all-files
+
+# Run specific hook
+poetry run pre-commit run black --all-files
+```
 
 ---
 
@@ -140,4 +164,3 @@ Open an issue or start a discussion on GitHub!
 ---
 
 **Thank you for contributing to NameGnome Serve! 🎉**
-

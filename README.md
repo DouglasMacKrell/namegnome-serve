@@ -1,5 +1,10 @@
 # NameGnome Serve
 
+[![CI](https://github.com/DouglasMacKrell/namegnome-serve/actions/workflows/ci.yml/badge.svg)](https://github.com/DouglasMacKrell/namegnome-serve/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 **Local-first media file renaming service powered by LangChain, LangServe, and Ollama.**
 
 NameGnome Serve provides reliable, deterministic media renaming that aligns with provider metadata (TMDB/TVDB/MusicBrainz), ensuring your Plex, Jellyfin, and Emby libraries match correctly.
@@ -140,4 +145,3 @@ Contributions are welcome! Please:
 ---
 
 **Built with ❤️ for reliable media library management.**
-
