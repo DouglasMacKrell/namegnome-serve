@@ -10,10 +10,14 @@ from namegnome_serve.metadata.providers.base import (
     ProviderUnavailableError,
     RateLimitError,
 )
+from namegnome_serve.metadata.providers.tmdb import TMDBProvider
+from namegnome_serve.metadata.providers.tvdb import TVDBProvider
 
 __all__ = [
     "BaseProvider",
     "ProviderError",
     "ProviderUnavailableError",
     "RateLimitError",
+    "TMDBProvider",
+    "TVDBProvider",
 ]
