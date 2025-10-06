@@ -84,6 +84,10 @@ def scan(
                 year = parsed_data.get("year")
                 track = parsed_data.get("track")
 
+                # Extract uncertainty flags
+                needs_disambiguation = parsed_data.get("needs_disambiguation", False)
+                anthology_candidate = parsed_data.get("anthology_candidate", False)
+
                 # Create MediaFile entry with parsed metadata
                 media_file = MediaFile(
                     path=file_path,
@@ -94,8 +98,8 @@ def scan(
                     parsed_episode=int(episode) if episode is not None else None,
                     parsed_year=int(year) if year is not None else None,
                     parsed_track=int(track) if track is not None else None,
-                    needs_disambiguation=False,  # T2-03: Set by uncertainty flag
-                    anthology_candidate=False,  # T2-03: Set by uncertainty flag
+                    needs_disambiguation=bool(needs_disambiguation),
+                    anthology_candidate=bool(anthology_candidate),
                 )
                 media_files.append(media_file)
 
