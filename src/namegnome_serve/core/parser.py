@@ -31,7 +31,27 @@ def _extract_year(text: str) -> tuple[str | None, str]:
     return None, text
 
 
-def _parse_tv_episode(filename: str, full_path: Path) -> dict[str, str | int | None]:
+def _extract_all_years(text: str) -> list[str]:
+    """Extract all years in parentheses from text."""
+    matches = re.findall(r"\((\d{4})\)", text)
+    return matches
+
+
+def _has_anthology_keywords(text: str) -> bool:
+    """Check if text contains anthology-related keywords."""
+    anthology_keywords = [
+        "anthology",
+        "collection",
+        "compilation",
+        "omnibus",
+    ]
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in anthology_keywords)
+
+
+def _parse_tv_episode(
+    filename: str, full_path: Path
+) -> dict[str, str | int | bool | None]:
     """Parse TV episode filename."""
     result: dict[str, Any] = {
         "title": None,
@@ -40,6 +60,8 @@ def _parse_tv_episode(filename: str, full_path: Path) -> dict[str, str | int | N
         "episode_end": None,
         "episode_title": None,
         "year": None,
+        "needs_disambiguation": False,
+        "anthology_candidate": False,
     }
 
     # Normalize separators
@@ -96,15 +118,51 @@ def _parse_tv_episode(filename: str, full_path: Path) -> dict[str, str | int | N
     if not result["title"]:
         result["title"] = normalized
 
+    # Detect uncertainty flags
+
+    # Check for multiple years in filename
+    all_years_in_filename = _extract_all_years(filename)
+    if len(all_years_in_filename) > 1:
+        result["needs_disambiguation"] = True
+
+    # Check for conflicting year info between directory and filename
+    year_from_dir = None
+    for part in full_path.parts:
+        year_match = re.search(r"\((\d{4})\)", part)
+        if year_match:
+            year_from_dir = int(year_match.group(1))
+            break
+
+    if year_from_dir and result["year"] and year_from_dir != result["year"]:
+        result["needs_disambiguation"] = True
+
+    # Check for multi-episode range (anthology candidate)
+    if result["episode_end"] is not None:
+        result["anthology_candidate"] = True
+
+    # Check for anthology keywords (only in filename and immediate parent dir)
+    # Don't check the entire path to avoid false positives from temp directories
+    immediate_parent = full_path.parent.name if full_path.parent else ""
+    check_text = filename + " " + immediate_parent
+    if _has_anthology_keywords(check_text):
+        result["anthology_candidate"] = True
+
+    # Note: We don't use title length as a heuristic because many shows
+    # (like Paw Patrol) naturally have long, descriptive episode titles
+    # without being multi-segment anthology episodes. We rely on explicit
+    # multi-episode ranges (E01-E02) or anthology keywords instead.
+
     return result
 
 
-def _parse_movie(filename: str, full_path: Path) -> dict[str, str | int | None]:
+def _parse_movie(filename: str, full_path: Path) -> dict[str, str | int | bool | None]:
     """Parse movie filename."""
     result: dict[str, Any] = {
         "title": None,
         "year": None,
         "part": None,
+        "needs_disambiguation": False,
+        "anthology_candidate": False,
     }
 
     # Normalize separators
@@ -140,10 +198,20 @@ def _parse_movie(filename: str, full_path: Path) -> dict[str, str | int | None]:
                     result["year"] = int(year_match.group(2))
                 break
 
+    # Detect uncertainty flags for movies
+
+    # Check for multiple years in filename (remakes)
+    all_years_in_filename = _extract_all_years(filename)
+    if len(all_years_in_filename) > 1:
+        result["needs_disambiguation"] = True
+
+    # Movies don't have anthology concept in our system
+    # (anthology_candidate remains False for movies)
+
     return result
 
 
-def _parse_music(filename: str, full_path: Path) -> dict[str, str | int | None]:
+def _parse_music(filename: str, full_path: Path) -> dict[str, str | int | bool | None]:
     """Parse music track filename."""
     result: dict[str, Any] = {
         "track": None,
@@ -151,6 +219,8 @@ def _parse_music(filename: str, full_path: Path) -> dict[str, str | int | None]:
         "artist": None,
         "album": None,
         "year": None,
+        "needs_disambiguation": False,
+        "anthology_candidate": False,
     }
 
     # Normalize separators but keep hyphens for track separator
@@ -187,6 +257,9 @@ def _parse_music(filename: str, full_path: Path) -> dict[str, str | int | None]:
                 result["year"] = int(year_match.group(2))
             else:
                 result["album"] = album_part
+
+    # Music files typically don't need uncertainty flags
+    # (both flags remain False for music in most cases)
 
     return result
 
