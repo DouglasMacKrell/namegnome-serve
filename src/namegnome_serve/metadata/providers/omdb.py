@@ -13,7 +13,7 @@ Security:
 - Rate limiting enforced to stay within free tier limits
 """
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -93,11 +93,11 @@ class OMDbProvider(BaseProvider):
         try:
             response = await self._client.get(self.BASE_URL, params=params)
             response.raise_for_status()
-            data: dict[str, Any] = response.json()
+            data = cast(dict[str, Any], response.json())
 
             # OMDb returns "Response": "True" or "False"
             if data.get("Response") == "True":
-                results: list[dict[str, Any]] = data.get("Search", [])
+                results = cast(list[dict[str, Any]], data.get("Search", []))
                 if limit is not None:
                     return results[:limit]
                 return results
@@ -127,7 +127,7 @@ class OMDbProvider(BaseProvider):
         try:
             response = await self._client.get(self.BASE_URL, params=params)
             response.raise_for_status()
-            data: dict[str, Any] = response.json()
+            data = cast(dict[str, Any], response.json())
 
             # OMDb returns "Response": "True" or "False"
             if data.get("Response") == "True":
@@ -143,6 +143,64 @@ class OMDbProvider(BaseProvider):
             if e.response.status_code == 404:
                 return None
             raise ProviderError(f"OMDb get_movie_details failed: {e}") from e
+
+    async def search_series(
+        self, title: str, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Search for television series by title."""
+        if not self.check_rate_limit():
+            raise ProviderError(f"{self.provider_name} rate limit exceeded")
+
+        params: dict[str, Any] = {
+            "apikey": self._api_key,
+            "s": title,
+            "type": "series",
+        }
+
+        try:
+            response = await self._client.get(self.BASE_URL, params=params)
+            response.raise_for_status()
+            data = cast(dict[str, Any], response.json())
+
+            if data.get("Response") == "True":
+                results = cast(list[dict[str, Any]], data.get("Search", []))
+                if limit is not None:
+                    return results[:limit]
+                return results
+            return []
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return []
+            raise ProviderError(f"OMDb series search failed: {e}") from e
+
+    async def get_episode(
+        self, imdb_id: str, season: int, episode: int
+    ) -> dict[str, Any] | None:
+        """Fetch a specific episode for a series."""
+        if not self.check_rate_limit():
+            raise ProviderError(f"{self.provider_name} rate limit exceeded")
+
+        params = {
+            "apikey": self._api_key,
+            "i": imdb_id,
+            "Season": str(season),
+            "Episode": str(episode),
+        }
+
+        try:
+            response = await self._client.get(self.BASE_URL, params=params)
+            response.raise_for_status()
+            data = cast(dict[str, Any], response.json())
+
+            if data.get("Response") == "True":
+                return data
+            return None
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return None
+            raise ProviderError(f"OMDb episode lookup failed: {e}") from e
 
     def _normalize_rating(self, rating: str | None) -> float:
         """Normalize IMDb rating (0-10) to 0-1 scale.

@@ -70,9 +70,43 @@ async def test_omdb_search_movie():
         with patch.object(provider._client, "get", return_value=mock_response):
             results = await provider.search_movie("Moana", year=2016)
 
-            assert len(results) == 1
-            assert results[0]["Title"] == "Moana"
-            assert results[0]["imdbID"] == "tt3521164"
+        assert len(results) == 1
+        assert results[0]["Title"] == "Moana"
+        assert results[0]["imdbID"] == "tt3521164"
+
+
+@pytest.mark.asyncio
+async def test_omdb_search_series():
+    """Test searching for TV series by title."""
+    import os
+
+    from namegnome_serve.metadata.providers.omdb import OMDbProvider
+
+    with patch.dict(os.environ, {"OMDB_API_KEY": "test_key"}):
+        provider = OMDbProvider()
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "Search": [
+                {
+                    "Title": "Firebuds",
+                    "Year": "2022",
+                    "imdbID": "tt12345",
+                    "Type": "series",
+                }
+            ],
+            "totalResults": "1",
+            "Response": "True",
+        }
+        mock_response.raise_for_status.return_value = None
+
+        provider._client.get = AsyncMock(return_value=mock_response)
+
+        results = await provider.search_series("Firebuds")
+
+        assert len(results) == 1
+        assert results[0]["Title"] == "Firebuds"
+        assert results[0]["imdbID"] == "tt12345"
 
 
 @pytest.mark.asyncio
@@ -105,9 +139,38 @@ async def test_omdb_get_movie_details():
             details = await provider.get_movie_details("tt3521164")
 
             assert details is not None
-            assert details["Title"] == "Moana"
-            assert details["imdbRating"] == "7.6"
-            assert details["imdb_rating_normalized"] == 0.76  # 7.6/10
+        assert details["Title"] == "Moana"
+        assert details["imdbRating"] == "7.6"
+        assert details["imdb_rating_normalized"] == 0.76  # 7.6/10
+
+
+@pytest.mark.asyncio
+async def test_omdb_get_episode_details():
+    """Test fetching a specific TV episode."""
+    import os
+
+    from namegnome_serve.metadata.providers.omdb import OMDbProvider
+
+    with patch.dict(os.environ, {"OMDB_API_KEY": "test_key"}):
+        provider = OMDbProvider()
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "Title": "Pilot",
+            "Season": "1",
+            "Episode": "1",
+            "SeriesID": "tt12345",
+            "Response": "True",
+        }
+        mock_response.raise_for_status.return_value = None
+
+        provider._client.get = AsyncMock(return_value=mock_response)
+
+        details = await provider.get_episode("tt12345", 1, 1)
+
+        assert details is not None
+        assert details["Title"] == "Pilot"
+        assert details["Season"] == "1"
 
 
 @pytest.mark.asyncio

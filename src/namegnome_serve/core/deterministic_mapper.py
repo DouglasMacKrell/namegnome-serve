@@ -114,7 +114,9 @@ class DeterministicMapper:
         # Try OMDb fallback if available
         if self.omdb:
             try:
-                search_results = await self.omdb.search_series(media_file.parsed_title)
+                search_results = await self.omdb.search_series(
+                    media_file.parsed_title, limit=5
+                )
 
                 if search_results and len(search_results) == 1:
                     series = search_results[0]
@@ -123,14 +125,16 @@ class DeterministicMapper:
                     # Get episode details
                     episode_title = None
                     if media_file.parsed_season and media_file.parsed_episode:
-                        episodes = await self.omdb.get_series_episodes(series_id)
-                        for episode in episodes:
-                            if (
-                                episode.get("season") == media_file.parsed_season
-                                and episode.get("episode") == media_file.parsed_episode
-                            ):
-                                episode_title = episode.get("name")
-                                break
+                        try:
+                            episode_info = await self.omdb.get_episode(
+                                series_id,
+                                media_file.parsed_season,
+                                media_file.parsed_episode,
+                            )
+                            if episode_info:
+                                episode_title = episode_info.get("Title")
+                        except Exception as exc:
+                            warnings.append(f"OMDb episode lookup failed: {exc}")
 
                     show_name = series["title"]
                     dst_path = self._build_tv_path(

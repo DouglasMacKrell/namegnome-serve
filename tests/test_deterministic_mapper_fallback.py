@@ -32,11 +32,18 @@ class TestDeterministicMapperFallback:
         # Mock OMDb provider to succeed
         mock_omdb = AsyncMock()
         mock_omdb.search_series.return_value = [
-            {"id": "tt12345", "title": "Breaking Bad", "year": "2008", "type": "series"}
+            {
+                "id": "tt12345",
+                "title": "Breaking Bad",
+                "year": "2008",
+                "type": "series",
+            }
         ]
-        mock_omdb.get_series_episodes.return_value = [
-            {"id": "ep1", "name": "Pilot", "season": 1, "episode": 1}
-        ]
+        mock_omdb.get_episode.return_value = {
+            "Title": "Pilot",
+            "Season": "1",
+            "Episode": "1",
+        }
 
         mapper = DeterministicMapper(
             tmdb=mock_tmdb, tvdb=mock_tvdb, musicbrainz=Mock(), omdb=mock_omdb
