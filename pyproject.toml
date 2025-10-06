@@ -19,7 +19,8 @@ dependencies = [
     "langserve (>=0.3.2,<0.4.0)",
     "typer (>=0.19.2,<0.20.0)",
     "langchain-community (>=0.3.30,<0.4.0)",
-    "langchain-ollama (>=0.3.10,<0.4.0)"
+    "langchain-ollama (>=0.3.10,<0.4.0)",
+    "aiosqlite (>=0.21.0,<0.22.0)"
 ]
 
 
@@ -34,6 +35,10 @@ mypy = "^1.18.2"
 pytest = "^8.4.2"
 pytest-cov = "^7.0.0"
 pre-commit = "^4.3.0"
+pytest-asyncio = "^1.2.0"
+pytest-timeout = "^2.4.0"
+pytest-benchmark = "^5.1.0"
+rich = "^14.1.0"
 
 [tool.poetry]
 packages = [{include = "namegnome_serve", from = "src"}]
@@ -95,6 +100,9 @@ module = [
     "langchain.*",
     "langserve.*",
     "structlog.*",
+    "httpx",
+    "aiosqlite",
+    "anyio",
 ]
 ignore_missing_imports = true
 
@@ -108,6 +116,9 @@ addopts = [
     "--cov-report=html",
     "--cov-report=term",
     "--cov-fail-under=80",
+    "--timeout=30",
+    "--durations=20",
+    "--tb=short",
     "-v",
 ]
 
