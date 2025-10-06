@@ -42,11 +42,11 @@ jobs:
       - name: Install project
         run: poetry install --no-interaction
 
-      - name: Run black
-        run: poetry run black --check .
-
-      - name: Run ruff
+      - name: Run ruff lint
         run: poetry run ruff check .
+
+      - name: Run ruff format check
+        run: poetry run ruff format --check .
 
       - name: Run mypy
         run: poetry run mypy src
