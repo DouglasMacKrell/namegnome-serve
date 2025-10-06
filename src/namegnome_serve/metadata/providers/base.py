@@ -12,9 +12,15 @@ import os
 import time
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
+
+import anyio
+import httpx
 
 from namegnome_serve.core.errors import NameGnomeError
+
+T = TypeVar("T")
 
 
 class ProviderError(NameGnomeError):
@@ -130,6 +136,73 @@ class BaseProvider(ABC):
         # Cap at 60 seconds max
         delay: float = min(base_delay * (2 ** (attempt - 1)), 60.0)
         return delay
+
+    async def _execute_with_retry(
+        self, func: Callable[[], Any], operation_name: str = "request"
+    ) -> T:
+        """Execute an async function with automatic retry on transient errors.
+
+        Retries on:
+        - 429 Too Many Requests (rate limit)
+        - 500, 502, 503, 504 (server errors)
+        - Network timeouts
+
+        Does NOT retry on:
+        - 4xx errors (except 429) - these are client errors
+
+        Args:
+            func: Async function to execute
+            operation_name: Name of operation for error messages
+
+        Returns:
+            Result from func()
+
+        Raises:
+            ProviderError: After max retries exceeded or non-retriable error
+        """
+        last_error = None
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                result: T = await func()
+                return result
+
+            except httpx.HTTPStatusError as e:
+                status_code = e.response.status_code
+                last_error = e
+
+                # Determine if we should retry
+                should_retry = status_code in (429, 500, 502, 503, 504)
+
+                if not should_retry or attempt >= self.max_retries:
+                    raise ProviderError(
+                        f"{self.provider_name} {operation_name} failed: {e}"
+                    ) from e
+
+                # Wait with exponential backoff before retry
+                delay = self.calculate_backoff_delay(attempt)
+                await anyio.sleep(delay)
+                continue
+
+            except httpx.TimeoutException as e:
+                last_error = e
+
+                if attempt >= self.max_retries:
+                    raise ProviderError(
+                        f"{self.provider_name} {operation_name} timed out after "
+                        f"{self.max_retries} attempts: {e}"
+                    ) from e
+
+                # Wait before retry
+                delay = self.calculate_backoff_delay(attempt)
+                await anyio.sleep(delay)
+                continue
+
+        # Should never reach here, but just in case
+        raise ProviderError(
+            f"{self.provider_name} {operation_name} failed after "
+            f"{self.max_retries} retries"
+        ) from last_error
 
     @property
     def api_key(self) -> str | None:

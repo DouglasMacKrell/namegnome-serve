@@ -121,18 +121,21 @@ class TMDBProvider(BaseProvider):
         if not self.check_rate_limit():
             raise ProviderError(f"{self.provider_name} rate limit exceeded")
 
-        try:
-            response = await self._client.get(
-                f"{self.BASE_URL}/search/movie", headers=headers, params=params
-            )
-            response.raise_for_status()
-            data: dict[str, Any] = await response.json()
-            results: list[dict[str, Any]] = data.get("results", [])
-            return results
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return []
-            raise ProviderError(f"TMDB search failed: {e}") from e
+        async def _do_search() -> list[dict[str, Any]]:
+            try:
+                response = await self._client.get(
+                    f"{self.BASE_URL}/search/movie", headers=headers, params=params
+                )
+                response.raise_for_status()
+                data: dict[str, Any] = response.json()
+                results: list[dict[str, Any]] = data.get("results", [])
+                return results
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    return []
+                raise  # Let retry wrapper handle it
+
+        return await self._execute_with_retry(_do_search, "search")
 
     async def get_details(self, entity_id: str, **kwargs: Any) -> dict[str, Any] | None:
         """Alias for get_movie_details for BaseProvider interface."""
@@ -158,54 +161,59 @@ class TMDBProvider(BaseProvider):
         if not self.check_rate_limit():
             raise ProviderError(f"{self.provider_name} rate limit exceeded")
 
-        try:
-            # Get movie details
-            response = await self._client.get(
-                f"{self.BASE_URL}/movie/{movie_id}", headers=headers, params=params
-            )
-            response.raise_for_status()
-            details: dict[str, Any] = await response.json()
+        async def _do_get_details() -> dict[str, Any] | None:
+            try:
+                # Get movie details
+                response = await self._client.get(
+                    f"{self.BASE_URL}/movie/{movie_id}", headers=headers, params=params
+                )
+                response.raise_for_status()
+                details: dict[str, Any] = response.json()
 
-            # Get images
-            if not self.check_rate_limit():
-                raise ProviderError(f"{self.provider_name} rate limit exceeded")
+                # Get images
+                if not self.check_rate_limit():
+                    raise ProviderError(f"{self.provider_name} rate limit exceeded")
 
-            img_params = params.copy()
-            if "api_key" in img_params:
-                img_params["include_image_language"] = "en,en-US,null"
+                img_params = params.copy()
+                if "api_key" in img_params:
+                    img_params["include_image_language"] = "en,en-US,null"
 
-            img_response = await self._client.get(
-                f"{self.BASE_URL}/movie/{movie_id}/images",
-                headers=headers,
-                params=img_params,
-            )
-            img_response.raise_for_status()
-            images: dict[str, Any] = await img_response.json()
+                img_response = await self._client.get(
+                    f"{self.BASE_URL}/movie/{movie_id}/images",
+                    headers=headers,
+                    params=img_params,
+                )
+                img_response.raise_for_status()
+                images: dict[str, Any] = img_response.json()
 
-            # Add best poster
-            if images.get("posters"):
-                best_poster = self._filter_english_images(images["posters"])
-                if best_poster:
-                    details["poster_url"] = (
-                        f"{self.IMAGE_BASE}{best_poster['file_path']}"
-                    )
+                # Add best poster
+                if images.get("posters"):
+                    best_poster = self._filter_english_images(images["posters"])
+                    if best_poster:
+                        details["poster_url"] = (
+                            f"{self.IMAGE_BASE}{best_poster['file_path']}"
+                        )
 
-            # Add best logo
-            if images.get("logos"):
-                best_logo = self._filter_english_images(images["logos"])
-                if best_logo:
-                    details["logo_url"] = f"{self.IMAGE_BASE}{best_logo['file_path']}"
+                # Add best logo
+                if images.get("logos"):
+                    best_logo = self._filter_english_images(images["logos"])
+                    if best_logo:
+                        details["logo_url"] = (
+                            f"{self.IMAGE_BASE}{best_logo['file_path']}"
+                        )
 
-            # Normalize rating to 0-1
-            vote_avg = details.get("vote_average", 0.0)
-            details["vote_average"] = self._normalize_rating(vote_avg)
+                # Normalize rating to 0-1
+                vote_avg = details.get("vote_average", 0.0)
+                details["vote_average"] = self._normalize_rating(vote_avg)
 
-            return details
+                return details
 
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return None
-            raise ProviderError(f"TMDB get_movie_details failed: {e}") from e
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    return None
+                raise  # Let retry wrapper handle it
+
+        return await self._execute_with_retry(_do_get_details, "get_movie_details")
 
     def _normalize_rating(self, rating: float | int | None) -> float:
         """Normalize 0-10 rating to 0-1 range.

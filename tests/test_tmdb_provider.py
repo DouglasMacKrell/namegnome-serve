@@ -4,7 +4,7 @@ Based on battle-tested patterns from mpv-scraper project.
 """
 
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -49,32 +49,28 @@ async def test_tmdb_search_movie_with_year():
     with patch.dict(os.environ, {"TMDB_API_KEY": "test_key"}):
         provider = TMDBProvider()
 
-        # Mock httpx response
-        mock_response = AsyncMock()
-        mock_response.json = AsyncMock(
-            return_value={
-                "results": [
-                    {"id": 12345, "title": "Moana", "release_date": "2016-11-23"}
-                ]
-            }
-        )
-        mock_response.raise_for_status = AsyncMock()
+    # Mock httpx response
+    mock_response = Mock()
+    mock_response.json = Mock(
+        return_value={
+            "results": [{"id": 12345, "title": "Moana", "release_date": "2016-11-23"}]
+        }
+    )
+    mock_response.raise_for_status = Mock()
 
-        with patch.object(
-            provider._client, "get", return_value=mock_response
-        ) as mock_get:
-            results = await provider.search_movie("Moana", year=2016)
+    with patch.object(provider._client, "get", return_value=mock_response) as mock_get:
+        results = await provider.search_movie("Moana", year=2016)
 
-            assert len(results) == 1
-            assert results[0]["id"] == 12345
-            assert results[0]["title"] == "Moana"
+        assert len(results) == 1
+        assert results[0]["id"] == 12345
+        assert results[0]["title"] == "Moana"
 
-            # Verify API call
-            mock_get.assert_called_once()
-            call_args = mock_get.call_args
-            assert "search/movie" in str(call_args[0][0])
-            assert call_args[1]["params"]["query"] == "Moana"
-            assert call_args[1]["params"]["year"] == 2016
+        # Verify API call
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        assert "search/movie" in str(call_args[0][0])
+        assert call_args[1]["params"]["query"] == "Moana"
+        assert call_args[1]["params"]["year"] == 2016
 
 
 @pytest.mark.asyncio
@@ -106,8 +102,8 @@ async def test_tmdb_get_movie_details():
         provider = TMDBProvider()
 
         # Mock movie details response
-        mock_details = AsyncMock()
-        mock_details.json = AsyncMock(
+        mock_details = Mock()
+        mock_details.json = Mock(
             return_value={
                 "id": 12345,
                 "title": "Test Movie",
@@ -116,11 +112,11 @@ async def test_tmdb_get_movie_details():
                 "genres": [{"name": "Action"}],
             }
         )
-        mock_details.raise_for_status = AsyncMock()
+        mock_details.raise_for_status = Mock()
 
         # Mock images response
-        mock_images = AsyncMock()
-        mock_images.json = AsyncMock(
+        mock_images = Mock()
+        mock_images.json = Mock(
             return_value={
                 "posters": [
                     {
@@ -138,7 +134,7 @@ async def test_tmdb_get_movie_details():
                 ],
             }
         )
-        mock_images.raise_for_status = AsyncMock()
+        mock_images.raise_for_status = Mock()
 
         with patch.object(
             provider._client, "get", side_effect=[mock_details, mock_images]
@@ -181,8 +177,8 @@ async def test_tmdb_normalizes_rating():
         provider = TMDBProvider()
 
         # Mock response with 10-point scale rating
-        mock_response = AsyncMock()
-        mock_response.json = AsyncMock(
+        mock_response = Mock()
+        mock_response.json = Mock(
             return_value={
                 "id": 12345,
                 "title": "Test",
@@ -190,7 +186,7 @@ async def test_tmdb_normalizes_rating():
                 "overview": "Test movie",
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             details = await provider.get_movie_details(12345)
