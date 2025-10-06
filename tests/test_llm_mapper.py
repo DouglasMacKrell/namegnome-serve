@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from namegnome_serve.core.llm_mapper import FuzzyLLMMapper
+from namegnome_serve.core.llm_mapper import FuzzyLLMMapper, build_tv_fuzzy_chain
 from namegnome_serve.routes.schemas import MediaFile
 
 
@@ -125,3 +125,36 @@ def test_llm_mapper_validates_response_structure() -> None:
 
     with pytest.raises(ValueError, match="assignments"):
         mapper.generate_tv_plan(media_file, [])
+
+
+class FakeChatModel:
+    """Minimal chat model stub that records messages and returns JSON."""
+
+    def __init__(self) -> None:
+        self.calls: list[list[Any]] = []
+
+    def invoke(self, messages: list[Any], **_: Any) -> str:
+        self.calls.append(messages)
+        return '{"assignments": []}'
+
+
+def test_build_tv_fuzzy_chain_formats_prompt() -> None:
+    """Builder should format prompt, forward to model, and parse JSON."""
+
+    fake_model = FakeChatModel()
+    chain = build_tv_fuzzy_chain(fake_model)
+
+    payload = {
+        "media": {"title": "Firebuds", "season": 1, "episode": None},
+        "candidates": [{"id": "ep1", "name": "Ready"}],
+    }
+
+    output = chain.invoke(payload)
+
+    assert output == {"assignments": []}
+    assert len(fake_model.calls) == 1
+    messages = fake_model.calls[0]
+    contents = [msg.content if hasattr(msg, "content") else msg[1] for msg in messages]
+    combined = "\n".join(str(text) for text in contents)
+    assert "Firebuds" in combined
+    assert "assignments" in combined
