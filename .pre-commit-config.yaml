@@ -16,15 +16,7 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Python code formatting
-  - repo: https://github.com/psf/black
-    rev: 25.9.0
-    hooks:
-      - id: black
-        language_version: python3.12
-        args: ['--config', 'pyproject.toml']
-
-  # Python linting
+  # Python linting and formatting (Ruff replaces Black + isort)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.3
     hooks:
@@ -43,7 +35,7 @@ repos:
         args: ['--config-file', 'pyproject.toml']
         files: ^src/
 
-  # Test execution (lighter - no coverage check on pre-commit)
+  # Test execution (blocks push if tests fail - allows TDD commits locally)
   - repo: local
     hooks:
       - id: pytest-check
@@ -53,4 +45,4 @@ repos:
         pass_filenames: false
         always_run: true
         args: ['--no-cov', '-q', '--tb=short']
-        stages: [pre-commit]
+        stages: [pre-push]
