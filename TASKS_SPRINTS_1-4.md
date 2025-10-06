@@ -2,7 +2,7 @@
 
 # 📝 TASKS — Sprints 0–4 (Full)
 
-Each ticket includes **Title**, **Goal**, **Steps**, and **Done When** acceptance criteria. Follow in order.  
+Each ticket includes **Title**, **Goal**, **Steps**, and **Done When** acceptance criteria. Follow in order.
 **Note:** To avoid renumber collisions while preserving existing tickets, newly added items are appended with the next numbers.
 
 ---

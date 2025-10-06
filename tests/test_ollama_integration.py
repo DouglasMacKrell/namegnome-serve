@@ -46,8 +46,7 @@ def get_ollama_models() -> list[str]:
 def test_ollama_service_running() -> None:
     """Test that Ollama service is accessible."""
     assert check_ollama_running(), (
-        "Ollama service not running. "
-        "Start it with: ollama serve (in separate terminal)"
+        "Ollama service not running. Start it with: ollama serve (in separate terminal)"
     )
 
 

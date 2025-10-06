@@ -10,23 +10,23 @@
 
 ## 🧭 Core Functions
 
-1. **Scan**  
-   - Walk directories recursively.  
-   - Detect media files by extension and collect metadata (size, hash, media type, existing name).  
+1. **Scan**
+   - Walk directories recursively.
+   - Detect media files by extension and collect metadata (size, hash, media type, existing name).
    - Output structured JSON describing each file found.
 
-2. **Plan**  
+2. **Plan**
    - **Determine canonical record** via provider API (TMDB/TVDB/MusicBrainz) using explicit context and parsed directory names.
    - **Disambiguate** titles (e.g., `Danger Mouse (1981)` vs `Danger Mouse (2015)`) by prompting the user if multiple candidates exist.
-   - **Map input → provider**:  
-     - If **titles exist** in the input, LLM performs **fuzzy matching** against provider episodes/tracks/films and uses **adjacency** to resolve incomplete or misspelled pieces.  
+   - **Map input → provider**:
+     - If **titles exist** in the input, LLM performs **fuzzy matching** against provider episodes/tracks/films and uses **adjacency** to resolve incomplete or misspelled pieces.
      - If **only numbers** exist, trust numbering (S/E/track or year) and pull titles from the provider response.
    - **Anthology mode (`--anthology`)**: allow ≥1 title per file; LLM maps segments to **contiguous provider episodes** using adjacency; never trust input numbering in anthology mode.
    - Produce proposed rename operations with confidence and warnings for manual review.
 
-3. **Apply**  
-   - Execute renames atomically.  
-   - Produce a rollback token for undo operations.  
+3. **Apply**
+   - Execute renames atomically.
+   - Produce a rollback token for undo operations.
    - Ensure filesystem integrity.
 
 ---
@@ -34,21 +34,21 @@
 ## 🧰 Inputs & Outputs
 
 ### Inputs
-- File or directory path(s)  
-- Explicit media type (`tv`, `movie`, `music`)  
-- Optional disambiguation hints (title, year, season, provider, provider ID)  
-- Optional flags:  
+- File or directory path(s)
+- Explicit media type (`tv`, `movie`, `music`)
+- Optional disambiguation hints (title, year, season, provider, provider ID)
+- Optional flags:
   - `--dry-run`: don't apply changes (preview only)
-  - `--with-hash`: compute file hashes during scan  
-  - `--skip-anthology`: bypass anthology logic  
+  - `--with-hash`: compute file hashes during scan
+  - `--skip-anthology`: bypass anthology logic
   - `--transactional`: stop on first failure and rollback (default)
   - `--continue-on-error`: attempt all renames despite failures
   - `--provider`: `tmdb` | `tvdb` | `musicbrainz` (specify preferred provider)
   - `--offline`: use cached data only; no network calls
 
 ### Outputs
-- **Scan** → `ScanResult` JSON: list of discovered media files with metadata.  
-- **Plan** → `PlanItem[]` with `srcPath`, `dstPath`, `reason`, `confidence`, `warnings[]`, and `sources:[{provider,id}]` pulled from API or cache.  
+- **Scan** → `ScanResult` JSON: list of discovered media files with metadata.
+- **Plan** → `PlanItem[]` with `srcPath`, `dstPath`, `reason`, `confidence`, `warnings[]`, and `sources:[{provider,id}]` pulled from API or cache.
   - May return **409 Disambiguation Required** with `disambiguation_token` and `candidates[]`
 - **Disambiguate** → Resolved choice persisted; planning resumes automatically
 - **Apply** → `ApplyResult` with `moved[]`, `skipped[]`, `failed[]`, and a `rollbackToken`.
@@ -57,30 +57,30 @@
 
 ## 🧍 User Responsibilities
 
-- **Declare media type.** The system will not guess media type.  
-- **Provide clarifications when prompted.** For ambiguous titles (e.g., duplicate show names across years), the user must choose.  
-- **Network access for fresh lookups.** API calls are required for uncached entities; otherwise we fall back to cache + manual review.  
+- **Declare media type.** The system will not guess media type.
+- **Provide clarifications when prompted.** For ambiguous titles (e.g., duplicate show names across years), the user must choose.
+- **Network access for fresh lookups.** API calls are required for uncached entities; otherwise we fall back to cache + manual review.
 - **Valid paths/permissions.** Ensure provided paths are accessible.
 
 ---
 
 ## 🌐 API & LLM Constraints
 
-- **External metadata is the source of truth.** We **must** query platforms relied on by Plex (TMDB/TVDB/MusicBrainz) to determine canonical titles, seasons/episodes, years, and numbering. Local heuristics alone are insufficient.  
-- **Caching required:** Responses must be cached locally (SQLite or DuckDB) with keyed lookups (provider, entity type, ID or title+year) to avoid repeated requests.  
-- **Rate limits & resilience:** Respect provider rate limits; implement backoff/retry and graceful degradation (manual review) on failures.  
-- **LLM role is assistive, not authoritative:** The LLM may **fuzz‑match** user/file titles against the API response, propose anthology segment mapping, and explain ambiguity, but it does **not** invent metadata.  
+- **External metadata is the source of truth.** We **must** query platforms relied on by Plex (TMDB/TVDB/MusicBrainz) to determine canonical titles, seasons/episodes, years, and numbering. Local heuristics alone are insufficient.
+- **Caching required:** Responses must be cached locally (SQLite or DuckDB) with keyed lookups (provider, entity type, ID or title+year) to avoid repeated requests.
+- **Rate limits & resilience:** Respect provider rate limits; implement backoff/retry and graceful degradation (manual review) on failures.
+- **LLM role is assistive, not authoritative:** The LLM may **fuzz‑match** user/file titles against the API response, propose anthology segment mapping, and explain ambiguity, but it does **not** invent metadata.
 - **Offline mode (best‑effort):** If offline, operate only on previously cached data and require **manual confirmation** for anything not in cache.
 
 ---
 
 ## 🧠 Design Principles
 
-- **Provider‑first correctness:** Treat TMDB/TVDB/MusicBrainz as the canonical source matched by Plex; file names must align with provider records.  
-- **Deterministic first, LLM second:** Rules and provider data drive decisions; the LLM proposes fuzzy matches or anthology splits only where deterministic mapping isn’t possible.  
-- **Explicit over implicit:** Require users to state media type (`tv`, `movie`, `music`) and provide clarifying inputs when prompted.  
-- **Streaming‑safe JSON:** All chain outputs must be valid JSON that can stream through LangChain/LangServe.  
-- **Reversible operations:** Every apply emits a rollback plan.  
+- **Provider‑first correctness:** Treat TMDB/TVDB/MusicBrainz as the canonical source matched by Plex; file names must align with provider records.
+- **Deterministic first, LLM second:** Rules and provider data drive decisions; the LLM proposes fuzzy matches or anthology splits only where deterministic mapping isn’t possible.
+- **Explicit over implicit:** Require users to state media type (`tv`, `movie`, `music`) and provide clarifying inputs when prompted.
+- **Streaming‑safe JSON:** All chain outputs must be valid JSON that can stream through LangChain/LangServe.
+- **Reversible operations:** Every apply emits a rollback plan.
 - **Domain isolation:** Keep TV/Movie/Music logic separate, even if this duplicates code.
 
 ---
@@ -251,19 +251,19 @@ Thin REST client for IDE workflows. Provides developer-focused tools:
 
 ## 🚧 Limitations
 
-- LLM performance depends on local hardware. For best results, use `llama3:8b` with q4_K_M quantization on Apple Silicon.  
-- The system will not guess media type or disambiguate titles without explicit user input.  
-- Anthology splitting is **best‑effort** — complex edge cases may require manual review.  
+- LLM performance depends on local hardware. For best results, use `llama3:8b` with q4_K_M quantization on Apple Silicon.
+- The system will not guess media type or disambiguate titles without explicit user input.
+- Anthology splitting is **best‑effort** — complex edge cases may require manual review.
 - Rollback works only within the same filesystem context; moving files between disks may limit undo capabilities.
 
 ---
 
 ## 🧪 Testing Strategy
 
-- **Unit Tests** for each core module (scanner, media filters, deterministic rules, fs_ops).  
-- **Chain Tests** for LangChain Runnables (scan_chain, plan_chain, apply_chain).  
-- **Integration Tests** for scan→plan→apply pipeline.  
-- **Anthology Eval Suite** with offline JSONL dataset to regression test LLM outputs.  
+- **Unit Tests** for each core module (scanner, media filters, deterministic rules, fs_ops).
+- **Chain Tests** for LangChain Runnables (scan_chain, plan_chain, apply_chain).
+- **Integration Tests** for scan→plan→apply pipeline.
+- **Anthology Eval Suite** with offline JSONL dataset to regression test LLM outputs.
 - **Route Tests** to validate FastAPI + LangServe endpoints and JSON contracts.
 
 ---
