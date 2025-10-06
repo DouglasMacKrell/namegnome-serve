@@ -39,7 +39,14 @@ class SourceRef(BaseModel):
         id: Provider-specific entity ID
     """
 
-    provider: Literal["tmdb", "tvdb", "musicbrainz", "anilist", "omdb"]
+    provider: Literal[
+        "tmdb",
+        "tvdb",
+        "musicbrainz",
+        "anilist",
+        "omdb",
+        "theaudiodb",
+    ]
     id: str
 
     model_config = {"frozen": True}

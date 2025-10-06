@@ -65,7 +65,7 @@ async def test_omdb_search_movie():
                 "Response": "True",
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             results = await provider.search_movie("Moana", year=2016)
@@ -99,7 +99,7 @@ async def test_omdb_get_movie_details():
                 "Response": "True",
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             details = await provider.get_movie_details("tt3521164")
@@ -125,7 +125,7 @@ async def test_omdb_handles_not_found():
         mock_response.json = Mock(
             return_value={"Response": "False", "Error": "Movie not found!"}
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             details = await provider.get_movie_details("tt0000000")
@@ -147,7 +147,7 @@ async def test_omdb_handles_search_no_results():
         mock_response.json = Mock(
             return_value={"Response": "False", "Error": "Movie not found!"}
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             results = await provider.search_movie("NonexistentMovie12345")

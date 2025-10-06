@@ -1,12 +1,33 @@
 """Integration tests for MusicBrainz API with real API calls.
 
 MusicBrainz is FREE and requires NO API key!
-Tests always run (no credentials needed).
+Tests run when the public API is reachable; otherwise the module is skipped to
+protect CI environments without outbound network access.
 
 IMPORTANT: These tests respect MusicBrainz's 1 req/sec rate limit.
 """
 
+import socket
+
 import pytest
+
+
+def _musicbrainz_reachable() -> bool:
+    """Return True when the MusicBrainz API host is reachable."""
+
+    try:
+        with socket.create_connection(("musicbrainz.org", 443), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_if_musicbrainz_unreachable() -> None:
+    """Skip module when MusicBrainz cannot be reached."""
+
+    if not _musicbrainz_reachable():
+        pytest.skip("MusicBrainz API not reachable. Skipping integration tests.")
 
 
 @pytest.mark.asyncio

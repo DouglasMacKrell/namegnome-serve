@@ -70,13 +70,14 @@ class OMDbProvider(BaseProvider):
         return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def search_movie(
-        self, title: str, year: int | None = None
+        self, title: str, year: int | None = None, limit: int | None = None
     ) -> list[dict[str, Any]]:
         """Search for movies by title and optional year.
 
         Args:
             title: Movie title to search
             year: Optional release year
+            limit: Optional maximum number of results to return
 
         Returns:
             List of matching movies
@@ -97,6 +98,8 @@ class OMDbProvider(BaseProvider):
             # OMDb returns "Response": "True" or "False"
             if data.get("Response") == "True":
                 results: list[dict[str, Any]] = data.get("Search", [])
+                if limit is not None:
+                    return results[:limit]
                 return results
             else:
                 # No results or error

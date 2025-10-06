@@ -10,7 +10,7 @@ TVDB v3 API (legacy) specifics:
 
 import os
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -29,7 +29,7 @@ async def test_tvdb_authenticates_and_caches_token():
         mock_auth_response.json = AsyncMock(
             return_value={"token": "test_jwt_token_12345"}
         )
-        mock_auth_response.raise_for_status = AsyncMock()
+        mock_auth_response.raise_for_status = Mock()
 
         with patch.object(
             provider._client, "post", return_value=mock_auth_response
@@ -88,7 +88,7 @@ async def test_tvdb_search_series():
                 ]
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(
             provider._client, "get", return_value=mock_response
@@ -131,7 +131,7 @@ async def test_tvdb_get_series_episodes():
                 "links": {"next": 2},
             }
         )
-        mock_page1.raise_for_status = AsyncMock()
+        mock_page1.raise_for_status = Mock()
 
         mock_page2 = AsyncMock()
         mock_page2.json = AsyncMock(
@@ -147,7 +147,7 @@ async def test_tvdb_get_series_episodes():
                 "links": {},
             }
         )
-        mock_page2.raise_for_status = AsyncMock()
+        mock_page2.raise_for_status = Mock()
 
         with patch.object(
             provider._client, "get", side_effect=[mock_page1, mock_page2]
@@ -175,12 +175,12 @@ async def test_tvdb_handles_401_reauth():
         # Mock new auth
         mock_auth = AsyncMock()
         mock_auth.json = AsyncMock(return_value={"token": "fresh_token"})
-        mock_auth.raise_for_status = AsyncMock()
+        mock_auth.raise_for_status = Mock()
 
         # Mock successful retry
         mock_success = AsyncMock()
         mock_success.json = AsyncMock(return_value={"data": []})
-        mock_success.raise_for_status = AsyncMock()
+        mock_success.raise_for_status = Mock()
 
         # First GET raises 401, second GET succeeds
         get_call_count = 0

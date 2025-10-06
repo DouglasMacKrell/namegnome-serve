@@ -79,7 +79,7 @@ async def test_provider_retries_on_500_server_error():
             else:
                 mock_resp = AsyncMock()
                 mock_resp.json = Mock(return_value={"results": []})
-                mock_resp.raise_for_status = AsyncMock()
+                mock_resp.raise_for_status = Mock()
                 return mock_resp
 
         with patch.object(provider._client, "get", side_effect=mock_get):
@@ -113,7 +113,7 @@ async def test_provider_retries_on_503_service_unavailable():
             else:
                 mock_resp = AsyncMock()
                 mock_resp.json = Mock(return_value={"results": []})
-                mock_resp.raise_for_status = AsyncMock()
+                mock_resp.raise_for_status = Mock()
                 return mock_resp
 
         with patch.object(provider._client, "get", side_effect=mock_get):
@@ -201,7 +201,7 @@ async def test_provider_exponential_backoff():
             else:
                 mock_resp = AsyncMock()
                 mock_resp.json = Mock(return_value={"results": []})
-                mock_resp.raise_for_status = AsyncMock()
+                mock_resp.raise_for_status = Mock()
                 return mock_resp
 
         with patch.object(provider._client, "get", side_effect=mock_get):
@@ -239,7 +239,7 @@ async def test_provider_retries_on_network_timeout():
             else:
                 mock_resp = AsyncMock()
                 mock_resp.json = Mock(return_value={"results": []})
-                mock_resp.raise_for_status = AsyncMock()
+                mock_resp.raise_for_status = Mock()
                 return mock_resp
 
         with patch.object(provider._client, "get", side_effect=mock_get):

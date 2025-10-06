@@ -64,7 +64,7 @@ async def test_fanarttv_get_movie_artwork():
                 ],
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             artwork = await provider.get_movie_artwork("277834")
@@ -96,7 +96,7 @@ async def test_fanarttv_get_tv_artwork():
                 "showbackground": [{"url": "https://example.com/bg.jpg", "lang": "en"}],
             }
         )
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             artwork = await provider.get_tv_artwork("414000")
@@ -173,7 +173,7 @@ async def test_fanarttv_search_and_get_details():
         # get_details() should work with movie_id
         mock_response = AsyncMock()
         mock_response.json = Mock(return_value={"name": "Test"})
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             details = await provider.get_details("123", media_type="movie")

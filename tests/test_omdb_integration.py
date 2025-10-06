@@ -105,8 +105,8 @@ async def test_omdb_real_rate_limiting():
         results = await provider.search_movie("test", limit=1)
         assert isinstance(results, list)
 
-        # Check rate limit would block rapid requests
-        assert provider.check_rate_limit()  # Should still have capacity
+        # Check rate limit would block rapid requests (protect free tier)
+        assert not provider.check_rate_limit()
 
         print("✅ OMDb rate limiting configured correctly:")
         print(f"   Rate limit: {provider.rate_limit_per_minute} req/min")

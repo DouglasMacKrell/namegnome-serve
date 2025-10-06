@@ -8,6 +8,13 @@ from namegnome_serve.core.deterministic_mapper import DeterministicMapper
 from namegnome_serve.core.scanner import MediaFile
 
 
+@pytest.fixture(autouse=True)
+def _set_theaudiodb_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure mapper-created providers have a deterministic API key."""
+
+    monkeypatch.setenv("THEAUDIODB_API_KEY", "test_key")
+
+
 class TestDeterministicMapper:
     """Test the deterministic mapper for TV shows, movies, and music."""
 

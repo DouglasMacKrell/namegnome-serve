@@ -13,6 +13,7 @@ Security:
 - Rate limiting enforced (40 req/min conservative)
 """
 
+import inspect
 from typing import Any
 
 import httpx
@@ -65,7 +66,10 @@ class TVDBProvider(BaseProvider):
                 f"{self.BASE_URL}/login", json={"apikey": self.api_key}
             )
             response.raise_for_status()
-            data: dict[str, Any] = await response.json()
+            data = response.json()
+            if inspect.isawaitable(data):
+                data = await data
+            data = dict(data)
             token: str = data["token"]
 
             # Cache token
@@ -115,7 +119,10 @@ class TVDBProvider(BaseProvider):
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
             response.raise_for_status()
-            data: dict[str, Any] = await response.json()
+            data = response.json()
+            if inspect.isawaitable(data):
+                data = await data
+            data = dict(data)
             return data
 
         except httpx.HTTPStatusError as e:
@@ -131,7 +138,10 @@ class TVDBProvider(BaseProvider):
                     response = await self._client.post(url, **kwargs)
 
                 response.raise_for_status()
-                result: dict[str, Any] = await response.json()
+                result = response.json()
+                if inspect.isawaitable(result):
+                    result = await result
+                result = dict(result)
                 return result
 
             elif e.response.status_code == 404:

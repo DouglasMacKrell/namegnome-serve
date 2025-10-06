@@ -8,7 +8,7 @@ AniDB specifics:
 - Client name and version required in User-Agent
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -80,7 +80,7 @@ async def test_anidb_get_anime_details():
         <permanent count="1000">8.50</permanent>
     </ratings>
 </anime>"""
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = Mock()
 
         with patch.object(provider._client, "get", return_value=mock_response):
             details = await provider.get_anime_details("123")

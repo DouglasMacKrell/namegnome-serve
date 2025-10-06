@@ -62,7 +62,7 @@ async def test_musicbrainz_search_recording():
             ]
         }
     )
-    mock_response.raise_for_status = AsyncMock()
+    mock_response.raise_for_status = Mock()
 
     with patch.object(provider._client, "get", return_value=mock_response) as mock_get:
         results = await provider.search_recording("We Know the Way")
@@ -101,7 +101,7 @@ async def test_musicbrainz_search_artist():
             ]
         }
     )
-    mock_response.raise_for_status = AsyncMock()
+    mock_response.raise_for_status = Mock()
 
     with patch.object(provider._client, "get", return_value=mock_response):
         results = await provider.search_artist("Lin-Manuel Miranda")
@@ -129,7 +129,7 @@ async def test_musicbrainz_get_release_group():
             "primary-type": "Album",
         }
     )
-    mock_response.raise_for_status = AsyncMock()
+    mock_response.raise_for_status = Mock()
 
     with patch.object(provider._client, "get", return_value=mock_response):
         details = await provider.get_release_group("rg-789")
@@ -195,7 +195,7 @@ async def test_musicbrainz_handles_503_rate_limit():
     mock_success = AsyncMock()
     # httpx .json() is synchronous, not async - use Mock, not AsyncMock
     mock_success.json = Mock(return_value={"artists": []})
-    mock_success.raise_for_status = AsyncMock()
+    mock_success.raise_for_status = Mock()
 
     call_count = 0
 

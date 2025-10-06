@@ -14,6 +14,7 @@ from namegnome_serve.metadata.providers.base import (
 from namegnome_serve.metadata.providers.fanarttv import FanartTVProvider
 from namegnome_serve.metadata.providers.musicbrainz import MusicBrainzProvider
 from namegnome_serve.metadata.providers.omdb import OMDbProvider
+from namegnome_serve.metadata.providers.theaudiodb import TheAudioDBProvider
 from namegnome_serve.metadata.providers.tmdb import TMDBProvider
 from namegnome_serve.metadata.providers.tvdb import TVDBProvider
 
@@ -28,4 +29,5 @@ __all__ = [
     "OMDbProvider",
     "FanartTVProvider",
     "AniDBProvider",
+    "TheAudioDBProvider",
 ]
