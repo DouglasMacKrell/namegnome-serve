@@ -47,7 +47,11 @@ class OMDbProvider(BaseProvider):
         Returns:
             List of search results
         """
-        return await self.search_movie(query, year=kwargs.get("year"))
+
+        async def _do_search() -> list[dict[str, Any]]:
+            return await self.search_movie(query, year=kwargs.get("year"))
+
+        return await self._execute_with_retry(_do_search, "search")
 
     async def get_details(self, entity_id: str, **kwargs: Any) -> dict[str, Any] | None:
         """Get movie details by IMDb ID.
@@ -59,7 +63,11 @@ class OMDbProvider(BaseProvider):
         Returns:
             Movie details or None if not found
         """
-        return await self.get_movie_details(entity_id)
+
+        async def _do_get_details() -> dict[str, Any] | None:
+            return await self.get_movie_details(entity_id)
+
+        return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def search_movie(
         self, title: str, year: int | None = None

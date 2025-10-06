@@ -36,6 +36,8 @@ pytest = "^8.4.2"
 pytest-cov = "^7.0.0"
 pre-commit = "^4.3.0"
 pytest-asyncio = "^1.2.0"
+pytest-timeout = "^2.4.0"
+pytest-benchmark = "^5.1.0"
 
 [tool.poetry]
 packages = [{include = "namegnome_serve", from = "src"}]
@@ -113,6 +115,8 @@ addopts = [
     "--cov-report=html",
     "--cov-report=term",
     "--cov-fail-under=80",
+    "--timeout=30",
+    "--durations=10",
     "-v",
 ]
 

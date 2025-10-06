@@ -58,7 +58,11 @@ class MusicBrainzProvider(BaseProvider):
         Returns:
             List of recording results
         """
-        return await self.search_recording(query)
+
+        async def _do_search() -> list[dict[str, Any]]:
+            return await self.search_recording(query)
+
+        return await self._execute_with_retry(_do_search, "search")
 
     async def get_details(self, entity_id: str, **kwargs: Any) -> dict[str, Any] | None:
         """Get release group details by ID.
@@ -70,7 +74,11 @@ class MusicBrainzProvider(BaseProvider):
         Returns:
             Release group details or None if not found
         """
-        return await self.get_release_group(entity_id)
+
+        async def _do_get_details() -> dict[str, Any] | None:
+            return await self.get_release_group(entity_id)
+
+        return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def search_recording(
         self, query: str, limit: int = 25

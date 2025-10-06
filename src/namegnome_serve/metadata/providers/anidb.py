@@ -63,7 +63,11 @@ class AniDBProvider(BaseProvider):
         Returns:
             Anime details or None if not found
         """
-        return await self.get_anime_details(entity_id)
+
+        async def _do_get_details() -> dict[str, Any] | None:
+            return await self.get_anime_details(entity_id)
+
+        return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def get_anime_details(self, anime_id: str) -> dict[str, Any] | None:
         """Get anime details by AniDB ID.

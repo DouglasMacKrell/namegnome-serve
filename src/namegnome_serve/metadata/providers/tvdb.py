@@ -162,13 +162,17 @@ class TVDBProvider(BaseProvider):
         Returns:
             Series details or None if not found
         """
-        try:
-            data = await self._request_with_reauth(
-                "GET", f"{self.BASE_URL}/series/{entity_id}"
-            )
-            return data.get("data")
-        except ProviderError:
-            return None
+
+        async def _do_get_details() -> dict[str, Any] | None:
+            try:
+                data = await self._request_with_reauth(
+                    "GET", f"{self.BASE_URL}/series/{entity_id}"
+                )
+                return data.get("data")
+            except ProviderError:
+                return None
+
+        return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def search_series(self, name: str) -> list[dict[str, Any]]:
         """Search for TV series by name.
@@ -179,14 +183,18 @@ class TVDBProvider(BaseProvider):
         Returns:
             List of matching series
         """
-        try:
-            data = await self._request_with_reauth(
-                "GET", f"{self.BASE_URL}/search/series", params={"name": name}
-            )
-            results: list[dict[str, Any]] = data.get("data", [])
-            return results
-        except ProviderError:
-            return []
+
+        async def _do_search() -> list[dict[str, Any]]:
+            try:
+                data = await self._request_with_reauth(
+                    "GET", f"{self.BASE_URL}/search/series", params={"name": name}
+                )
+                results: list[dict[str, Any]] = data.get("data", [])
+                return results
+            except ProviderError:
+                return []
+
+        return await self._execute_with_retry(_do_search, "search_series")
 
     async def get_series_episodes(self, series_id: int) -> list[dict[str, Any]]:
         """Get all episodes for a TV series (handles pagination).

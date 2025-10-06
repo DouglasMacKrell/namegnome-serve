@@ -59,13 +59,19 @@ class FanartTVProvider(BaseProvider):
         Returns:
             Artwork details or None if not found
         """
-        media_type = kwargs.get("media_type")
-        if media_type == "movie":
-            return await self.get_movie_artwork(entity_id)
-        elif media_type == "tv":
-            return await self.get_tv_artwork(entity_id)
-        else:
-            raise ValueError(f"Invalid media_type: {media_type}. Use 'movie' or 'tv'.")
+
+        async def _do_get_details() -> dict[str, Any] | None:
+            media_type = kwargs.get("media_type")
+            if media_type == "movie":
+                return await self.get_movie_artwork(entity_id)
+            elif media_type == "tv":
+                return await self.get_tv_artwork(entity_id)
+            else:
+                raise ValueError(
+                    f"Invalid media_type: {media_type}. Use 'movie' or 'tv'."
+                )
+
+        return await self._execute_with_retry(_do_get_details, "get_details")
 
     async def get_movie_artwork(self, tmdb_id: str) -> dict[str, Any] | None:
         """Get movie artwork by TMDB ID.
