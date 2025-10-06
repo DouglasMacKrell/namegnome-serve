@@ -160,7 +160,7 @@ class BaseProvider(ABC):
         Raises:
             ProviderError: After max retries exceeded or non-retriable error
         """
-        last_error = None
+        last_error: Exception | None = None
 
         for attempt in range(1, self.max_retries + 1):
             try:
