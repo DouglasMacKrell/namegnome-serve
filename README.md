@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/DouglasMacKrell/namegnome-serve/actions/workflows/ci.yml/badge.svg)](https://github.com/DouglasMacKrell/namegnome-serve/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 **Local-first media file renaming service powered by LangChain, LangServe, and Ollama.**
@@ -82,9 +81,9 @@ poetry run pytest
 # With coverage
 poetry run pytest --cov=namegnome_serve --cov-report=html
 
-# Lint and type check
+# Lint, format, and type check
 poetry run ruff check .
-poetry run black --check .
+poetry run ruff format --check .
 poetry run mypy .
 ```
 
@@ -111,7 +110,7 @@ namegnome-serve/
 ### Code Standards
 
 - **Python ≥ 3.12** with type hints
-- **black** formatting, **ruff** linting, **mypy --strict**
+- **Ruff** formatting and linting (replaces Black), **mypy --strict**
 - **80% test coverage** threshold
 - **Absolute imports** only (rooted at `namegnome_serve`)
 - **500-line max** per file (split by feature/domain)
