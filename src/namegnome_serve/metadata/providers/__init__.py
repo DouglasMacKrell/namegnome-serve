@@ -11,6 +11,7 @@ from namegnome_serve.metadata.providers.base import (
     RateLimitError,
 )
 from namegnome_serve.metadata.providers.musicbrainz import MusicBrainzProvider
+from namegnome_serve.metadata.providers.omdb import OMDbProvider
 from namegnome_serve.metadata.providers.tmdb import TMDBProvider
 from namegnome_serve.metadata.providers.tvdb import TVDBProvider
 
@@ -22,4 +23,5 @@ __all__ = [
     "TMDBProvider",
     "TVDBProvider",
     "MusicBrainzProvider",
+    "OMDbProvider",
 ]
