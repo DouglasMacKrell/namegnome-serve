@@ -7,10 +7,9 @@ Run this after setting up a new development environment.
 
 import subprocess
 import sys
-from typing import Tuple
 
 
-def run_command(cmd: list[str]) -> Tuple[bool, str]:
+def run_command(cmd: list[str]) -> tuple[bool, str]:
     """Run a command and return success status and output."""
     try:
         result = subprocess.run(
@@ -93,7 +92,7 @@ def main() -> int:
     ]
 
     results = []
-    for name, check_func in checks:
+    for _name, check_func in checks:
         results.append(check_func())
         print()
 
@@ -110,4 +109,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
