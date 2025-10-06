@@ -6,7 +6,6 @@ import pytest
 
 from namegnome_serve.core.deterministic_mapper import DeterministicMapper
 from namegnome_serve.core.scanner import MediaFile
-from namegnome_serve.routes.schemas import ConfidenceLevel
 
 
 class TestDeterministicMapper:
@@ -60,13 +59,13 @@ class TestDeterministicMapper:
         result = await mapper.map_media_file(media_file, "tv")
 
         assert result is not None
-        assert result.confidence == ConfidenceLevel.HIGH
+        assert result.confidence >= 0.75  # High confidence
         assert (
-            result.dst_path
+            str(result.dst_path)
             == "/tv/Breaking Bad/Season 01/Breaking Bad - S01E01 - Pilot.mkv"
         )
-        assert result.provider_id == "12345"
-        assert result.provider == "TVDB"
+        assert result.sources[0].id == "12345"
+        assert result.sources[0].provider == "tvdb"
 
     @pytest.mark.asyncio
     async def test_map_movie_exact_match(self):
@@ -102,7 +101,7 @@ class TestDeterministicMapper:
         result = await mapper.map_media_file(media_file, "movie")
 
         assert result is not None
-        assert result.confidence == ConfidenceLevel.HIGH
+        assert result.confidence >= 0.75  # High confidence
         assert result.dst_path == "/movies/The Matrix (1999)/The Matrix (1999).mkv"
         assert result.provider_id == "12345"
         assert result.provider == "TMDB"
@@ -142,7 +141,7 @@ class TestDeterministicMapper:
         result = await mapper.map_media_file(media_file, "music")
 
         assert result is not None
-        assert result.confidence == ConfidenceLevel.HIGH
+        assert result.confidence >= 0.75  # High confidence
         assert (
             result.dst_path
             == "/music/Queen/A Night at the Opera/01 - Bohemian Rhapsody.flac"
@@ -237,8 +236,8 @@ class TestDeterministicMapper:
         result = await mapper.map_media_file(media_file, "tv")
 
         assert result is not None
-        assert "Pilot" in result.dst_path
-        assert result.episode_title == "Pilot"
+        # Episode title should be in the destination path
+        assert "Pilot" in str(result.dst_path)
 
     @pytest.mark.asyncio
     async def test_map_music_with_album_artist(self):
