@@ -161,13 +161,15 @@ Provider-first deterministic mapping with LLM assist for anthology/fuzzy cases.
 ### 🪜 Tickets
 
 #### 🌐 T3-01 — Provider Client Abstractions (HTTPX + Cache)
-- **Goal:** TMDB/TVDB/MusicBrainz lookups with retry/backoff and local cache.
+- **Goal:** TMDB/TVDB/MusicBrainz lookups with fallback providers for resilience.
 - **Steps:**
   1. Create `metadata/providers/base.py` interface; concrete `tmdb.py`, `tvdb.py`, `musicbrainz.py`.
-  2. Implement title+year search; fetch series/season/episodes; albums/tracks.
-  3. Add local cache (SQLite) keyed by `(provider, type, id | title+year)` with TTL.
-  4. Respect rate limits; exponential backoff on 429/5xx.
-- **Done When:** Known titles resolve to normalized entities from cache when repeated.
+  2. Add fallback providers: `omdb.py` (movies), `fanarttv.py` (artwork), `anidb.py` (anime).
+  3. Implement title+year search; fetch series/season/episodes; albums/tracks.
+  4. Add local cache (SQLite) keyed by `(provider, type, id | title+year)` with TTL.
+  5. Respect rate limits; exponential backoff on 429/5xx.
+  6. Fallback chain: TVDB→TVmaze for TV, TMDB→OMDb for movies, FanartTV for missing artwork.
+- **Done When:** Known titles resolve to normalized entities from cache when repeated; fallbacks activate on primary failures.
 
 #### 🧮 T3-02 — Deterministic Mapper
 - **Goal:** Map scan fields to provider entities without LLM when possible.

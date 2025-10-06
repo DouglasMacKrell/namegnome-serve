@@ -154,7 +154,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    async def get_details(self, entity_id: str, **kwargs: Any) -> dict[str, Any]:
+    async def get_details(self, entity_id: str, **kwargs: Any) -> dict[str, Any] | None:
         """Get detailed information for an entity.
 
         Args:
@@ -162,7 +162,7 @@ class BaseProvider(ABC):
             **kwargs: Provider-specific parameters
 
         Returns:
-            Entity details dictionary
+            Entity details dictionary, or None if not found
 
         Raises:
             ProviderError: On fetch failure
