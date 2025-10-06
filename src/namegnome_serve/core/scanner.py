@@ -13,6 +13,7 @@ from namegnome_serve.core.constants import (
     MUSIC_EXTENSIONS,
     TV_EXTENSIONS,
 )
+from namegnome_serve.core.parser import parse_filename
 from namegnome_serve.routes.schemas import MediaFile, ScanResult
 
 
@@ -73,18 +74,28 @@ def scan(
                 if with_hash:
                     file_hash = _compute_sha256(file_path)
 
-                # Create MediaFile entry
+                # Parse filename to extract metadata
+                parsed_data = parse_filename(file_path, media_type=media_type)
+
+                # Extract and cast parsed values to proper types
+                title = parsed_data.get("title")
+                season = parsed_data.get("season")
+                episode = parsed_data.get("episode")
+                year = parsed_data.get("year")
+                track = parsed_data.get("track")
+
+                # Create MediaFile entry with parsed metadata
                 media_file = MediaFile(
                     path=file_path,
                     size=file_size,
                     hash=file_hash,
-                    parsed_title=None,  # Will be populated by parser in T2-02
-                    parsed_season=None,
-                    parsed_episode=None,
-                    parsed_year=None,
-                    parsed_track=None,
-                    needs_disambiguation=False,
-                    anthology_candidate=False,
+                    parsed_title=str(title) if title is not None else None,
+                    parsed_season=int(season) if season is not None else None,
+                    parsed_episode=int(episode) if episode is not None else None,
+                    parsed_year=int(year) if year is not None else None,
+                    parsed_track=int(track) if track is not None else None,
+                    needs_disambiguation=False,  # T2-03: Set by uncertainty flag
+                    anthology_candidate=False,  # T2-03: Set by uncertainty flag
                 )
                 media_files.append(media_file)
 

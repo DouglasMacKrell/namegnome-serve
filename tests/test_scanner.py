@@ -272,3 +272,97 @@ def test_scan_result_immutability() -> None:
 
     assert result.media_type == "tv"
     assert result.file_count == 0
+
+
+# ============================================================================
+# Parser Integration Tests (T2-02-6)
+# ============================================================================
+
+
+def test_scan_populates_parsed_tv_metadata(temp_media_tree: Path) -> None:
+    """Test that scan populates parsed metadata for TV files."""
+    from namegnome_serve.core.scanner import scan
+
+    tv_path = temp_media_tree / "tv"
+    result = scan(paths=[tv_path], media_type="tv", with_hash=False)
+
+    # Find the S01E01 file
+    s01e01 = next(f for f in result.files if "S01E01" in f.path.name)
+
+    # Should have parsed TV metadata
+    assert s01e01.parsed_title == "Show"
+    assert s01e01.parsed_season == 1
+    assert s01e01.parsed_episode == 1
+    assert s01e01.parsed_track is None  # Not music
+
+
+def test_scan_populates_parsed_movie_metadata(temp_media_tree: Path) -> None:
+    """Test that scan populates parsed metadata for movie files."""
+    from namegnome_serve.core.scanner import scan
+
+    movies_path = temp_media_tree / "movies"
+    result = scan(paths=[movies_path], media_type="movie", with_hash=False)
+
+    # Find the "Movie (2023)" file
+    movie_2023 = next(f for f in result.files if "2023" in f.path.name)
+
+    # Should have parsed movie metadata
+    assert movie_2023.parsed_title == "Movie"
+    assert movie_2023.parsed_year == 2023
+    assert movie_2023.parsed_season is None  # Not TV
+
+
+def test_scan_populates_parsed_music_metadata(temp_media_tree: Path) -> None:
+    """Test that scan populates parsed metadata for music files."""
+    from namegnome_serve.core.scanner import scan
+
+    music_path = temp_media_tree / "music"
+    result = scan(paths=[music_path], media_type="music", with_hash=False)
+
+    # Find track 01
+    track_01 = next(f for f in result.files if "01" in f.path.name)
+
+    # Should have parsed music metadata
+    assert track_01.parsed_track == 1
+    assert track_01.parsed_title == "Track"
+    assert track_01.parsed_season is None  # Not TV
+
+
+def test_scan_handles_complex_tv_filenames(tmp_path: Path) -> None:
+    """Test parser integration with complex TV filenames."""
+    from namegnome_serve.core.scanner import scan
+
+    # Create test files with various TV naming patterns
+    tv_dir = tmp_path / "tv"
+    tv_dir.mkdir()
+
+    (tv_dir / "Paw Patrol - S07E04 - Episode Title.mkv").write_text("content")
+    (tv_dir / "Show.Name.S03E05.Episode.Title.mp4").write_text("content")
+    (tv_dir / "Another_Show_S02E10.avi").write_text("content")
+
+    result = scan(paths=[tv_dir], media_type="tv", with_hash=False)
+
+    # All files should have parsed metadata
+    assert result.file_count == 3
+    for file in result.files:
+        assert file.parsed_title is not None
+        assert file.parsed_season is not None
+        assert file.parsed_episode is not None
+
+
+def test_scan_handles_multi_episode_tv(tmp_path: Path) -> None:
+    """Test parser integration with multi-episode TV files."""
+    from namegnome_serve.core.scanner import scan
+
+    tv_dir = tmp_path / "tv"
+    tv_dir.mkdir()
+
+    (tv_dir / "Show - S03E03-E04 - Title1 & Title2.mkv").write_text("content")
+
+    result = scan(paths=[tv_dir], media_type="tv", with_hash=False)
+
+    file = result.files[0]
+    assert file.parsed_title == "Show"
+    assert file.parsed_season == 3
+    assert file.parsed_episode == 3  # Start episode
+    # Note: episode_end is not exposed in MediaFile schema yet (T2-03)
