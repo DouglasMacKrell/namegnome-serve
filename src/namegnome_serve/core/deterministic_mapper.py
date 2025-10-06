@@ -313,20 +313,24 @@ class DeterministicMapper:
     def _build_tv_path(
         show_name: str,
         season: int | None,
-        episode: int | None,
+        episode_start: int | None,
         episode_title: str | None,
+        episode_end: int | None = None,
     ) -> Path:
         season_value = season or 1
-        episode_value = episode or 1
+        start_value = episode_start or 1
+        end_value = episode_end or start_value
         season_num = f"{season_value:02d}"
-        episode_num = f"{episode_value:02d}"
+        start_num = f"{start_value:02d}"
+        end_num = f"{end_value:02d}"
         season_dir = Path("/tv") / show_name / f"Season {season_num}"
+        code = f"S{season_num}E{start_num}"
+        if end_value != start_value:
+            code = f"{code}-E{end_num}"
         if episode_title:
-            filename = (
-                f"{show_name} - S{season_num}E{episode_num} - {episode_title}.mkv"
-            )
+            filename = f"{show_name} - {code} - {episode_title}.mkv"
         else:
-            filename = f"{show_name} - S{season_num}E{episode_num}.mkv"
+            filename = f"{show_name} - {code}.mkv"
         return season_dir / filename
 
     @staticmethod
