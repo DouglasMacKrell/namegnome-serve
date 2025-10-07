@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -266,3 +267,57 @@ async def test_plan_scan_result_returns_plan_review() -> None:
     assert engine.calls[1][0] == "/tv/ShowB/S02E05-E06.mkv"
     assert len(engine.calls[0][1] or []) == 0
     assert len(engine.calls[1][1] or []) == 2
+
+
+@pytest.mark.asyncio
+async def test_plan_scan_result_json_is_stable() -> None:
+    from namegnome_serve.core.plan_service import plan_scan_result_json
+
+    class NoopEngine:
+        async def generate_plan_inputs(
+            self,
+            media_file: MediaFile,
+            media_type: str,
+            provider_candidates: Sequence[dict[str, object]] | None = None,
+        ) -> PlanReviewSourceInput:
+            return PlanReviewSourceInput(
+                media_file=media_file,
+                deterministic=[
+                    PlanItem(
+                        src_path=media_file.path,
+                        dst_path=media_file.path,
+                        reason="noop",
+                        confidence=1.0,
+                        sources=[SourceRef(provider="tvdb", id="noop")],
+                    )
+                ],
+                llm=[],
+            )
+
+    scan_result = ScanResult(
+        root_path=Path("/tv"),
+        media_type="tv",
+        files=[
+            MediaFile(path=Path("/tv/file.mkv"), size=1, mtime=0, parsed_title="Show")
+        ],
+        total_size=1,
+        file_count=1,
+    )
+
+    payload_1 = await plan_scan_result_json(
+        engine=NoopEngine(),
+        scan_result=scan_result,
+        plan_id="pln_json",
+        generated_at=datetime(2025, 1, 4, tzinfo=UTC),
+    )
+
+    payload_2 = await plan_scan_result_json(
+        engine=NoopEngine(),
+        scan_result=scan_result,
+        plan_id="pln_json",
+        generated_at=datetime(2025, 1, 4, tzinfo=UTC),
+    )
+
+    assert payload_1 == payload_2
+    parsed = json.loads(payload_1)
+    assert parsed["plan_id"] == "pln_json"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -110,4 +111,36 @@ async def plan_scan_result(
         scan_id=scan_id,
         source_fingerprint=source_fingerprint,
         generated_at=generated_at,
+    )
+
+
+async def plan_scan_result_json(
+    *,
+    engine: PlanEngine,
+    scan_result: ScanResult,
+    candidate_map: dict[str, Sequence[dict[str, Any]]] | None = None,
+    plan_id: str | None = None,
+    scan_id: str | None = None,
+    source_fingerprint: str | None = None,
+    generated_at: datetime | None = None,
+    sort_keys: bool = True,
+    indent: int | None = None,
+) -> str:
+    """Serialize plan review for a scan result to stable JSON."""
+
+    review = await plan_scan_result(
+        engine=engine,
+        scan_result=scan_result,
+        candidate_map=candidate_map,
+        plan_id=plan_id,
+        scan_id=scan_id,
+        source_fingerprint=source_fingerprint,
+        generated_at=generated_at,
+    )
+
+    return json.dumps(
+        review,
+        indent=indent,
+        sort_keys=sort_keys,
+        separators=(",", ":") if indent is None else None,
     )
