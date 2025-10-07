@@ -147,6 +147,101 @@ class TMDBProvider(BaseProvider):
         """Search for movies by title and optional year."""
         return await self.search(title, year=year)
 
+    async def search_tv(
+        self, title: str, year: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Search for television series by title and optional year."""
+
+        headers, params = self._get_auth()
+        params["query"] = title
+        if year is not None:
+            params["first_air_date_year"] = year
+
+        if not self.check_rate_limit():
+            raise ProviderError(f"{self.provider_name} rate limit exceeded")
+
+        async def _do_search() -> list[dict[str, Any]]:
+            try:
+                response = await self._client.get(
+                    f"{self.BASE_URL}/search/tv", headers=headers, params=params
+                )
+                response.raise_for_status()
+                data: dict[str, Any] = response.json()
+                results = data.get("results", [])
+                if not isinstance(results, list):
+                    return []
+                return [dict(item) for item in results]
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return []
+                raise
+
+        return await self._execute_with_retry(_do_search, "search_tv")
+
+    async def get_tv_episodes(
+        self, series_id: int, season: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Fetch episodes for a TV series.
+
+        Args:
+            series_id: TMDB series identifier
+            season: Optional season number to limit lookup
+        """
+
+        headers, params = self._get_auth()
+
+        async def _fetch_season(season_number: int) -> list[dict[str, Any]]:
+            if not self.check_rate_limit():
+                raise ProviderError(f"{self.provider_name} rate limit exceeded")
+
+            async def _do_fetch() -> list[dict[str, Any]]:
+                response = await self._client.get(
+                    f"{self.BASE_URL}/tv/{series_id}/season/{season_number}",
+                    headers=headers,
+                    params=params,
+                )
+                response.raise_for_status()
+                payload: dict[str, Any] = response.json()
+                episodes = payload.get("episodes", [])
+                if not isinstance(episodes, list):
+                    return []
+                return [dict(item) for item in episodes]
+
+            return await self._execute_with_retry(
+                _do_fetch, f"get_tv_episodes:{season_number}"
+            )
+
+        if season is not None:
+            return await _fetch_season(season)
+
+        if not self.check_rate_limit():
+            raise ProviderError(f"{self.provider_name} rate limit exceeded")
+
+        async def _do_details() -> dict[str, Any]:
+            response = await self._client.get(
+                f"{self.BASE_URL}/tv/{series_id}", headers=headers, params=params
+            )
+            response.raise_for_status()
+            details_raw = response.json()
+            return dict(details_raw)
+
+        details: dict[str, Any] = await self._execute_with_retry(
+            _do_details, "get_tv_details"
+        )
+
+        episodes: list[dict[str, Any]] = []
+        for season_info in details.get("seasons", []):
+            season_number = season_info.get("season_number")
+            if season_number in (None, 0):
+                continue
+            try:
+                season_episodes = await _fetch_season(season_number)
+                episodes.extend(season_episodes)
+            except ProviderError:
+                continue
+
+        return episodes
+
     async def get_movie_details(self, movie_id: int) -> dict[str, Any] | None:
         """Get detailed movie information including images.
 

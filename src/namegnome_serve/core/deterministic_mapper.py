@@ -8,6 +8,7 @@ from namegnome_serve.metadata.providers import (
     TheAudioDBProvider,
     TMDBProvider,
     TVDBProvider,
+    TVMazeProvider,
 )
 from namegnome_serve.routes.schemas import (
     MediaFile,
@@ -33,6 +34,7 @@ class DeterministicMapper:
         musicbrainz: MusicBrainzProvider | None = None,
         omdb: Any | None = None,
         theaudiodb: TheAudioDBProvider | None = None,
+        tvmaze: TVMazeProvider | None = None,
     ):
         """Initialize mapper with provider clients and fallback providers."""
         self.tmdb = tmdb or TMDBProvider()
@@ -40,6 +42,7 @@ class DeterministicMapper:
         self.musicbrainz = musicbrainz or MusicBrainzProvider()
         self.omdb = omdb
         self.theaudiodb = theaudiodb or TheAudioDBProvider()
+        self.tvmaze = tvmaze or TVMazeProvider()
 
     async def map_media_file(
         self, media_file: MediaFile, media_type: str
@@ -62,8 +65,24 @@ class DeterministicMapper:
         else:
             return None
 
+    @staticmethod
+    def _extract_year(value: Any) -> int | None:
+        """Extract four-digit year from provider payload."""
+
+        if value is None:
+            return None
+
+        if isinstance(value, int):
+            return value
+
+        text = str(value)
+        for token in text.split("-"):
+            if token.isdigit() and len(token) == 4:
+                return int(token)
+        return None
+
     async def _map_tv_show(self, media_file: MediaFile) -> PlanItem | None:
-        """Map TV show to TVDB entity with OMDb fallback."""
+        """Map TV show using TVDB primary and TMDB→OMDb→TVMaze fallbacks."""
         if not media_file.parsed_title:
             return None
 
@@ -73,7 +92,13 @@ class DeterministicMapper:
         try:
             search_results = await self.tvdb.search_series(media_file.parsed_title)
 
-            if search_results and len(search_results) == 1:
+            if search_results:
+                if len(search_results) > 1:
+                    warnings.append(
+                        "TVDB returned multiple matches; requires disambiguation."
+                    )
+                    return None
+
                 series = search_results[0]
                 series_id = series["id"]
 
@@ -103,13 +128,59 @@ class DeterministicMapper:
                     dst_path=dst_path,
                     reason=f"Matched TV show '{show_name}' with TVDB",
                     confidence=1.0,  # High confidence for exact matches
-                    sources=[SourceRef(provider="tvdb", id=series_id)],
+                    sources=[SourceRef(provider="tvdb", id=str(series_id))],
                     warnings=warnings,
                 )
         except Exception as e:
             warnings.append(f"TVDB failed: {str(e)}")
 
-        # TMDB doesn't have TV show methods, skip to OMDb
+        # TMDB fallback
+        try:
+            search_results = await self.tmdb.search_tv(
+                media_file.parsed_title, year=media_file.parsed_year
+            )
+
+            if search_results and len(search_results) == 1:
+                series = search_results[0]
+                series_id = series["id"]
+                show_name_raw = series.get("name") or series.get("original_name")
+                show_name = str(
+                    show_name_raw or media_file.parsed_title or "Unknown Series"
+                )
+
+                episode_title = None
+                if media_file.parsed_season and media_file.parsed_episode:
+                    try:
+                        episodes = await self.tmdb.get_tv_episodes(
+                            series_id, season=media_file.parsed_season
+                        )
+                        for episode in episodes:
+                            if (
+                                episode.get("episode_number")
+                                == media_file.parsed_episode
+                            ):
+                                episode_title = episode.get("name")
+                                break
+                    except Exception as exc:
+                        warnings.append(f"TMDB episode lookup failed: {exc}")
+
+                dst_path = self._build_tv_path(
+                    show_name,
+                    media_file.parsed_season,
+                    media_file.parsed_episode,
+                    episode_title,
+                )
+
+                return PlanItem(
+                    src_path=media_file.path,
+                    dst_path=dst_path,
+                    reason=f"Matched TV show '{show_name}' with TMDB (fallback)",
+                    confidence=0.85,
+                    sources=[SourceRef(provider="tmdb", id=str(series_id))],
+                    warnings=warnings,
+                )
+        except Exception as e:
+            warnings.append(f"TMDB fallback failed: {str(e)}")
 
         # Try OMDb fallback if available
         if self.omdb:
@@ -136,7 +207,11 @@ class DeterministicMapper:
                         except Exception as exc:
                             warnings.append(f"OMDb episode lookup failed: {exc}")
 
-                    show_name = series["title"]
+                    show_name = str(
+                        series.get("title")
+                        or media_file.parsed_title
+                        or "Unknown Series"
+                    )
                     dst_path = self._build_tv_path(
                         show_name,
                         media_file.parsed_season,
@@ -154,6 +229,60 @@ class DeterministicMapper:
                     )
             except Exception as e:
                 warnings.append(f"OMDb fallback failed: {str(e)}")
+
+        # Final fallback: TVMaze (free, no auth)
+        try:
+            search_results = await self.tvmaze.search_series(media_file.parsed_title)
+
+            if search_results:
+                preferred = None
+                if media_file.parsed_year:
+                    for candidate in search_results:
+                        candidate_year = self._extract_year(
+                            candidate.get("premiered") or candidate.get("ended")
+                        )
+                        if candidate_year == media_file.parsed_year:
+                            preferred = candidate
+                            break
+                preferred = preferred or search_results[0]
+
+                series_id = preferred.get("id")
+                if series_id is not None:
+                    episode_title = None
+                    if media_file.parsed_season and media_file.parsed_episode:
+                        try:
+                            episode_data = await self.tvmaze.get_episode(
+                                series_id,
+                                media_file.parsed_season,
+                                media_file.parsed_episode,
+                            )
+                            if episode_data:
+                                episode_title = episode_data.get("name")
+                        except Exception as exc:
+                            warnings.append(f"TVMaze episode lookup failed: {exc}")
+
+                    show_name = str(
+                        preferred.get("name")
+                        or media_file.parsed_title
+                        or "Unknown Series"
+                    )
+                    dst_path = self._build_tv_path(
+                        show_name,
+                        media_file.parsed_season,
+                        media_file.parsed_episode,
+                        episode_title,
+                    )
+
+                    return PlanItem(
+                        src_path=media_file.path,
+                        dst_path=dst_path,
+                        reason=f"Matched TV show '{show_name}' with TVMaze (fallback)",
+                        confidence=0.6,
+                        sources=[SourceRef(provider="tvmaze", id=str(series_id))],
+                        warnings=warnings,
+                    )
+        except Exception as e:
+            warnings.append(f"TVMaze fallback failed: {str(e)}")
 
         return None
 

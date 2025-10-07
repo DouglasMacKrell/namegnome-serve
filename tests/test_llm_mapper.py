@@ -158,6 +158,8 @@ def test_build_tv_fuzzy_chain_formats_prompt() -> None:
     combined = "\n".join(str(text) for text in contents)
     assert "Firebuds" in combined
     assert "assignments" in combined
+    assert "adjacency" in combined
+    assert "contiguous" in combined
 
 
 def test_llm_mapper_sorts_assignments_and_backfills_titles() -> None:
@@ -205,3 +207,59 @@ def test_llm_mapper_sorts_assignments_and_backfills_titles() -> None:
         "/tv/Show/Season 02/Show - S02E03-E04 - The Double Act.mkv",
     ]
     assert [item.confidence for item in plan_items] == [0.6, 0.4]
+
+
+def test_llm_mapper_trims_overlapping_ranges() -> None:
+    """Overlapping spans are trimmed and warnings emitted."""
+
+    mapper = FuzzyLLMMapper(
+        FakeRunnable(
+            {
+                "assignments": [
+                    {
+                        "season": 1,
+                        "episode_start": 1,
+                        "episode_end": 2,
+                        "provider": {"provider": "tvdb", "id": "ep12"},
+                    },
+                    {
+                        "season": 1,
+                        "episode_start": 3,
+                        "episode_end": 4,
+                        "provider": {"provider": "tvdb", "id": "ep34"},
+                    },
+                    {
+                        "season": 1,
+                        "episode_start": 4,
+                        "episode_end": 5,
+                        "provider": {"provider": "tvdb", "id": "ep45"},
+                        "episode_title": "Night Rescue",
+                    },
+                ]
+            }
+        )
+    )
+
+    media_file = MediaFile(
+        path="/tv/Show/anthology.mkv",
+        size=1,
+        mtime=0,
+        parsed_title="Show",
+        anthology_candidate=True,
+    )
+    provider_candidates = [
+        {"id": "ep12", "name": "Mighty Quest", "seasonNumber": 1, "number": 2},
+        {"id": "ep34", "name": "Into the Shadows", "seasonNumber": 1, "number": 3},
+        {"id": "ep45", "name": "Night Rescue", "seasonNumber": 1, "number": 4},
+        {"id": "ep46", "name": "Bonus", "seasonNumber": 1, "number": 5},
+    ]
+
+    plan_items = mapper.generate_tv_plan(media_file, provider_candidates)
+
+    assert [str(item.dst_path) for item in plan_items] == [
+        "/tv/Show/Season 01/Show - S01E01-E02 - Mighty Quest.mkv",
+        "/tv/Show/Season 01/Show - S01E03 - Into the Shadows.mkv",
+        "/tv/Show/Season 01/Show - S01E04-E05 - Night Rescue.mkv",
+    ]
+    assert any("Trimmed span" in warning for warning in plan_items[1].warnings)
+    assert plan_items[1].confidence == pytest.approx(0.5)

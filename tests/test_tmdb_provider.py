@@ -194,3 +194,115 @@ async def test_tmdb_normalizes_rating():
             # Should be normalized to 0-1
             assert details["vote_average"] == 0.75
             assert 0.0 <= details["vote_average"] <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_tmdb_search_tv_with_year_filter():
+    """TV search should pass first_air_date_year parameter."""
+    from namegnome_serve.metadata.providers.tmdb import TMDBProvider
+
+    with patch.dict(os.environ, {"TMDB_API_KEY": "test_key"}):
+        provider = TMDBProvider()
+
+    mock_response = Mock()
+    mock_response.json = Mock(
+        return_value={
+            "results": [
+                {"id": 2468, "name": "Firebuds", "first_air_date": "2022-09-21"}
+            ]
+        }
+    )
+    mock_response.raise_for_status = Mock()
+
+    with patch.object(provider._client, "get", return_value=mock_response) as mock_get:
+        results = await provider.search_tv("Firebuds", year=2022)
+
+    assert len(results) == 1
+    assert results[0]["id"] == 2468
+    call_args = mock_get.call_args
+    assert "search/tv" in call_args.args[0]
+    params = call_args.kwargs["params"]
+    assert params["query"] == "Firebuds"
+    assert params["first_air_date_year"] == 2022
+
+
+@pytest.mark.asyncio
+async def test_tmdb_get_tv_episodes_for_season():
+    """Fetching episodes for a specific season should return parsed list."""
+    from namegnome_serve.metadata.providers.tmdb import TMDBProvider
+
+    with patch.dict(os.environ, {"TMDB_API_KEY": "test_key"}):
+        provider = TMDBProvider()
+
+    mock_response = AsyncMock()
+    mock_response.json = Mock(
+        return_value={
+            "episodes": [
+                {"id": 1, "season_number": 1, "episode_number": 1, "name": "Pilot"}
+            ]
+        }
+    )
+    mock_response.raise_for_status = Mock()
+
+    with patch.object(provider._client, "get", return_value=mock_response) as mock_get:
+        episodes = await provider.get_tv_episodes(101, season=1)
+
+    assert episodes == [
+        {"id": 1, "season_number": 1, "episode_number": 1, "name": "Pilot"}
+    ]
+    mock_get.assert_called_once()
+    assert "/tv/101/season/1" in mock_get.call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_tmdb_get_tv_episodes_all_seasons():
+    """Fetching episodes without season should iterate non-zero seasons."""
+    from namegnome_serve.metadata.providers.tmdb import TMDBProvider
+
+    with patch.dict(os.environ, {"TMDB_API_KEY": "test_key"}):
+        provider = TMDBProvider()
+
+    detail_response = AsyncMock()
+    detail_response.json = Mock(
+        return_value={
+            "seasons": [
+                {"season_number": 1},
+                {"season_number": 0},  # specials should be skipped
+                {"season_number": 2},
+            ]
+        }
+    )
+    detail_response.raise_for_status = Mock()
+
+    season1_response = AsyncMock()
+    season1_response.json = Mock(
+        return_value={
+            "episodes": [
+                {"id": 11, "season_number": 1, "episode_number": 1, "name": "S1E1"}
+            ]
+        }
+    )
+    season1_response.raise_for_status = Mock()
+
+    season2_response = AsyncMock()
+    season2_response.json = Mock(
+        return_value={
+            "episodes": [
+                {"id": 21, "season_number": 2, "episode_number": 1, "name": "S2E1"}
+            ]
+        }
+    )
+    season2_response.raise_for_status = Mock()
+
+    with patch.object(
+        provider._client,
+        "get",
+        side_effect=[detail_response, season1_response, season2_response],
+    ) as mock_get:
+        episodes = await provider.get_tv_episodes(202)
+
+    assert len(episodes) == 2
+    assert episodes[0]["season_number"] == 1
+    assert episodes[1]["season_number"] == 2
+    # First call should be details endpoint
+    assert "/tv/202" in mock_get.call_args_list[0].args[0]

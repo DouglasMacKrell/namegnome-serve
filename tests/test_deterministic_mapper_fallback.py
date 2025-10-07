@@ -19,34 +19,34 @@ class TestDeterministicMapperFallback:
     """Test fallback chain logic for failed mappings."""
 
     @pytest.mark.asyncio
-    async def test_tv_show_fallback_chain(self):
-        """Test TV show mapping with TVDB failure falls back to TMDB then OMDb."""
+    async def test_tv_show_tmdb_fallback(self):
+        """TV fallback should use TMDB when TVDB fails."""
         # Mock TVDB provider to fail
         mock_tvdb = AsyncMock()
         mock_tvdb.search_series.side_effect = Exception("TVDB API error")
 
-        # Mock TMDB provider to fail
         mock_tmdb = AsyncMock()
-        mock_tmdb.search_tv.side_effect = Exception("TMDB API error")
-
-        # Mock OMDb provider to succeed
-        mock_omdb = AsyncMock()
-        mock_omdb.search_series.return_value = [
+        mock_tmdb.search_tv.return_value = [
+            {"id": 101, "name": "Breaking Bad", "first_air_date": "2008-01-20"}
+        ]
+        mock_tmdb.get_tv_episodes.return_value = [
             {
-                "id": "tt12345",
-                "title": "Breaking Bad",
-                "year": "2008",
-                "type": "series",
+                "id": "tmdb-ep1",
+                "season_number": 1,
+                "episode_number": 1,
+                "name": "Pilot",
             }
         ]
-        mock_omdb.get_episode.return_value = {
-            "Title": "Pilot",
-            "Season": "1",
-            "Episode": "1",
-        }
+
+        mock_omdb = AsyncMock()
+        mock_tvmaze = AsyncMock()
 
         mapper = DeterministicMapper(
-            tmdb=mock_tmdb, tvdb=mock_tvdb, musicbrainz=Mock(), omdb=mock_omdb
+            tmdb=mock_tmdb,
+            tvdb=mock_tvdb,
+            musicbrainz=Mock(),
+            omdb=mock_omdb,
+            tvmaze=mock_tvmaze,
         )
 
         media_file = MediaFile(
@@ -62,8 +62,63 @@ class TestDeterministicMapperFallback:
         result = await mapper.map_media_file(media_file, "tv")
 
         assert result is not None
-        assert result.sources[0].provider == "omdb"
-        assert result.sources[0].id == "tt12345"
+        assert result.sources[0].provider == "tmdb"
+        assert result.sources[0].id == "101"
+        mock_tmdb.search_tv.assert_awaited_once_with("Breaking Bad", year=2008)
+        mock_tmdb.get_tv_episodes.assert_awaited_once_with(101, season=1)
+        mock_omdb.search_series.assert_not_called()
+        mock_tvmaze.search_series.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_tv_show_tvmaze_fallback(self):
+        """TV fallback should end at TVMaze when all others fail."""
+
+        mock_tvdb = AsyncMock()
+        mock_tvdb.search_series.side_effect = Exception("TVDB API error")
+
+        mock_tmdb = AsyncMock()
+        mock_tmdb.search_tv.side_effect = Exception("TMDB API error")
+
+        mock_omdb = AsyncMock()
+        mock_omdb.search_series.side_effect = Exception("OMDb API error")
+
+        mock_tvmaze = AsyncMock()
+        mock_tvmaze.search_series.return_value = [
+            {"id": 555, "name": "Breaking Bad", "premiered": "2008-01-20"}
+        ]
+        mock_tvmaze.get_episode.return_value = {
+            "id": 999,
+            "name": "Pilot",
+            "season": 1,
+            "number": 1,
+        }
+
+        mapper = DeterministicMapper(
+            tmdb=mock_tmdb,
+            tvdb=mock_tvdb,
+            musicbrainz=Mock(),
+            omdb=mock_omdb,
+            tvmaze=mock_tvmaze,
+        )
+
+        media_file = MediaFile(
+            path="/tv/Breaking Bad/S01E01.mkv",
+            size=1024,
+            mtime=1234567890,
+            parsed_title="Breaking Bad",
+            parsed_season=1,
+            parsed_episode=1,
+            parsed_year=2008,
+        )
+
+        result = await mapper.map_media_file(media_file, "tv")
+
+        assert result is not None
+        assert result.sources[0].provider == "tvmaze"
+        assert result.sources[0].id == "555"
+        mock_tmdb.search_tv.assert_awaited_once()
+        mock_omdb.search_series.assert_awaited_once()
+        mock_tvmaze.search_series.assert_awaited_once_with("Breaking Bad")
 
     @pytest.mark.asyncio
     async def test_movie_fallback_chain(self):

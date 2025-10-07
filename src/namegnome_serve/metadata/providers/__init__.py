@@ -17,6 +17,7 @@ from namegnome_serve.metadata.providers.omdb import OMDbProvider
 from namegnome_serve.metadata.providers.theaudiodb import TheAudioDBProvider
 from namegnome_serve.metadata.providers.tmdb import TMDBProvider
 from namegnome_serve.metadata.providers.tvdb import TVDBProvider
+from namegnome_serve.metadata.providers.tvmaze import TVMazeProvider
 
 __all__ = [
     "BaseProvider",
@@ -30,4 +31,5 @@ __all__ = [
     "FanartTVProvider",
     "AniDBProvider",
     "TheAudioDBProvider",
+    "TVMazeProvider",
 ]

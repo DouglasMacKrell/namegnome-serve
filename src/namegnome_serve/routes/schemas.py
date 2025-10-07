@@ -46,6 +46,7 @@ class SourceRef(BaseModel):
         "anilist",
         "omdb",
         "theaudiodb",
+        "tvmaze",
     ]
     id: str
 
