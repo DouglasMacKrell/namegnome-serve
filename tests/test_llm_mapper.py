@@ -158,3 +158,50 @@ def test_build_tv_fuzzy_chain_formats_prompt() -> None:
     combined = "\n".join(str(text) for text in contents)
     assert "Firebuds" in combined
     assert "assignments" in combined
+
+
+def test_llm_mapper_sorts_assignments_and_backfills_titles() -> None:
+    """Assignments should be normalized and ordered."""
+
+    mapper = FuzzyLLMMapper(
+        FakeRunnable(
+            {
+                "assignments": [
+                    {
+                        "season": 2,
+                        "episode_start": 3,
+                        "episode_end": 4,
+                        "provider": {"provider": "tvdb", "id": "ep34"},
+                        "confidence": 0.4,
+                    },
+                    {
+                        "season": 1,
+                        "episode_start": 5,
+                        "episode_end": 5,
+                        "episode_title": "Finale",
+                        "provider": {"provider": "tvdb", "id": "ep5"},
+                        "confidence": 0.6,
+                    },
+                ]
+            }
+        )
+    )
+
+    media_file = MediaFile(
+        path="/tv/Show/mixed.mkv",
+        size=1,
+        mtime=0,
+        parsed_title="Show",
+    )
+    provider_candidates = [
+        {"id": "ep34", "name": "The Double Act", "seasonNumber": 2, "number": 3},
+        {"id": "ep5", "name": "Finale", "seasonNumber": 1, "number": 5},
+    ]
+
+    plan_items = mapper.generate_tv_plan(media_file, provider_candidates)
+
+    assert [str(item.dst_path) for item in plan_items] == [
+        "/tv/Show/Season 01/Show - S01E05 - Finale.mkv",
+        "/tv/Show/Season 02/Show - S02E03-E04 - The Double Act.mkv",
+    ]
+    assert [item.confidence for item in plan_items] == [0.6, 0.4]

@@ -44,6 +44,10 @@ class FuzzyLLMMapper:
             "candidates": provider_candidates,
         }
 
+        provider_index = {
+            str(candidate.get("id")): candidate for candidate in provider_candidates
+        }
+
         response = self._llm.invoke(prompt_payload)
         assignments = (
             response.get("assignments") if isinstance(response, dict) else None
@@ -73,6 +77,11 @@ class FuzzyLLMMapper:
                 ValueError,
             ) as exc:  # pragma: no cover - defensive
                 raise ValueError(f"Invalid assignment payload: {assignment}") from exc
+
+            if not episode_title and provider_id:
+                candidate = provider_index.get(str(provider_id))
+                if candidate:
+                    episode_title = candidate.get("name")
 
             dst_path = DeterministicMapper._build_tv_path(
                 media_file.parsed_title,
@@ -112,6 +121,12 @@ class FuzzyLLMMapper:
             )
             results.append(plan_item)
 
+        results.sort(
+            key=lambda item: (
+                int(item.dst_path.parts[-2].split()[1]),
+                item.dst_path.stem.split(" ")[2],
+            )
+        )
         return results
 
 
