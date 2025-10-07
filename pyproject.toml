@@ -39,6 +39,7 @@ pytest-asyncio = "^1.2.0"
 pytest-timeout = "^2.4.0"
 pytest-benchmark = "^5.1.0"
 rich = "^14.1.0"
+jsonschema = "^4.25.1"
 
 [tool.poetry]
 packages = [{include = "namegnome_serve", from = "src"}]

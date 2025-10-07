@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://namegnome/plan_review.schema.json",
+  "title": "PlanReview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_id", "schema_version", "generated_at", "media_type",
+    "summary", "groups", "items"
+  ],
+  "properties": {
+    "plan_id": {"type": "string"},
+    "schema_version": {"type": "string", "enum": ["1.0"]},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "scan_id": {"type": ["string", "null"]},
+    "source_fingerprint": {"type": ["string", "null"]},
+    "media_type": {"type": "string", "enum": ["tv", "movie", "music"]},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_items", "by_origin", "by_confidence",
+        "warnings", "anthology_candidates", "disambiguations_required"
+      ],
+      "properties": {
+        "total_items": {"type": "integer", "minimum": 0},
+        "by_origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deterministic", "llm"],
+          "properties": {
+            "deterministic": {"type": "integer", "minimum": 0},
+            "llm": {"type": "integer", "minimum": 0}
+          }
+        },
+        "by_confidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["high", "medium", "low"],
+          "properties": {
+            "high": {"type": "integer", "minimum": 0},
+            "medium": {"type": "integer", "minimum": 0},
+            "low": {"type": "integer", "minimum": 0}
+          }
+        },
+        "warnings": {"type": "integer", "minimum": 0},
+        "anthology_candidates": {"type": "integer", "minimum": 0},
+        "disambiguations_required": {"type": "integer", "minimum": 0}
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group_key", "src_file", "items", "rollup"],
+        "properties": {
+          "group_key": {"type": "string"},
+          "src_file": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": {"type": "string"},
+              "size": {"type": ["integer", "null"]},
+              "mtime": {"type": ["string", "null"], "format": "date-time"},
+              "hash": {"type": ["string", "null"]}
+            }
+          },
+          "items": {"$ref": "#/definitions/PlanItems"},
+          "rollup": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["count", "confidence_min", "confidence_max", "warnings"],
+            "properties": {
+              "count": {"type": "integer", "minimum": 0},
+              "confidence_min": {"type": "number", "minimum": 0, "maximum": 1},
+              "confidence_max": {"type": "number", "minimum": 0, "maximum": 1},
+              "warnings": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "items": {"$ref": "#/definitions/PlanItems"},
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "definitions": {
+    "PlanItems": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/PlanItem"}
+    },
+    "PlanItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "origin", "confidence", "confidence_bucket",
+        "src", "dst", "sources", "warnings", "alternatives"
+      ],
+      "properties": {
+        "id": {"type": "string"},
+        "origin": {"type": "string", "enum": ["deterministic", "llm"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "confidence_bucket": {"type": "string", "enum": ["high", "medium", "low"]},
+        "src": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": {"type": "string"},
+            "segment": {"type": ["object", "null"]}
+          },
+          "additionalProperties": true
+        },
+        "dst": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": {"type": "string"},
+            "episode": {"type": ["object", "null"]},
+            "movie": {"type": ["object", "null"]},
+            "track": {"type": ["object", "null"]}
+          },
+          "additionalProperties": true
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["provider", "id", "type"],
+            "properties": {
+              "provider": {"type": "string"},
+              "id": {"type": "string"},
+              "type": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "anthology": {"type": ["boolean", "null"]},
+        "disambiguation": {"type": ["object", "null"]},
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["origin", "confidence", "dst"],
+            "properties": {
+              "origin": {"type": "string", "enum": ["deterministic", "llm"]},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+              "dst": {
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                  "path": {"type": "string"}
+                },
+                "additionalProperties": true
+              },
+              "reason": {"type": ["string", "null"]}
+            },
+            "additionalProperties": false
+          }
+        },
+        "explain": {"type": ["object", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "plan_id": "pln_2025-10-07T14-12-33Z_abcd",
+  "schema_version": "1.0",
+  "generated_at": "2025-10-07T14:12:33Z",
+  "scan_id": "scn_local_demo",
+  "source_fingerprint": "sha256:deadbeef",
+  "media_type": "tv",
+  "summary": {
+    "total_items": 2,
+    "by_origin": {"deterministic": 1, "llm": 1},
+    "by_confidence": {"high": 1, "medium": 1, "low": 0},
+    "warnings": 1,
+    "anthology_candidates": 2,
+    "disambiguations_required": 0
+  },
+  "groups": [
+    {
+      "group_key": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4",
+      "src_file": {"path": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4", "size": 123, "mtime": "2025-10-07T12:00:00Z", "hash": null},
+      "items": [
+        {
+          "id": "pli_0001",
+          "origin": "deterministic",
+          "confidence": 1.0,
+          "confidence_bucket": "high",
+          "src": {"path": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4", "segment": {"type": "episode_range", "season": 7, "from": 1, "to": 2}},
+          "dst": {"path": "abs:/Volumes/Media/TV/Paw Patrol (2013)/Season 07/Paw Patrol - S07E01-E02 - Mighty Pups Save Adventure Bay.mp4", "episode": {"season": 7, "episodes": [1, 2], "titles": ["Mighty Pups Save Adventure Bay"], "sort_index": [7,1,2]}, "movie": null, "track": null},
+          "sources": [{"provider": "tmdb", "id": "123", "type": "tv_series"}],
+          "warnings": [],
+          "anthology": true,
+          "disambiguation": null,
+          "alternatives": [],
+          "explain": {"deterministic": "Matched parsed range and provider adjacency."}
+        },
+        {
+          "id": "pli_0002",
+          "origin": "llm",
+          "confidence": 0.78,
+          "confidence_bucket": "medium",
+          "src": {"path": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4", "segment": {"type": "episode_single", "season": 7, "episode": 3}},
+          "dst": {"path": "abs:/Volumes/Media/TV/Paw Patrol (2013)/Season 07/Paw Patrol - S07E03 - The New Pup.mp4", "episode": {"season": 7, "episodes": [3], "titles": ["The New Pup"], "sort_index": [7,3]}, "movie": null, "track": null},
+          "sources": [{"provider": "tmdb", "id": "123_s7_e3", "type": "episode"}],
+          "warnings": ["tie_breaker_deterministic_preferred"],
+          "anthology": true,
+          "disambiguation": null,
+          "alternatives": [
+            {"origin": "deterministic", "confidence": 0.75, "dst": {"path": "abs:/.../S07E03-04 - ...mp4"}, "reason": "Overlap at 04; deterministic suggested range"}
+          ],
+          "explain": {"llm_hint": "Singleton suggested after fuzzy title match."}
+        }
+      ],
+      "rollup": {"count": 2, "confidence_min": 0.78, "confidence_max": 1.0, "warnings": ["tie_breaker_deterministic_preferred"]}
+    }
+  ],
+  "items": [
+    {"id": "pli_0001", "origin": "deterministic", "confidence": 1.0, "confidence_bucket": "high", "src": {"path": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4"}, "dst": {"path": "abs:/Volumes/Media/TV/Paw Patrol (2013)/Season 07/Paw Patrol - S07E01-E02 - Mighty Pups Save Adventure Bay.mp4"}, "sources": [], "warnings": [], "alternatives": [], "anthology": true, "disambiguation": null},
+    {"id": "pli_0002", "origin": "llm", "confidence": 0.78, "confidence_bucket": "medium", "src": {"path": "abs:/Volumes/Media/TV/Paw Patrol - S07E01-E02.mp4"}, "dst": {"path": "abs:/Volumes/Media/TV/Paw Patrol (2013)/Season 07/Paw Patrol - S07E03 - The New Pup.mp4"}, "sources": [], "warnings": ["tie_breaker_deterministic_preferred"], "alternatives": [{"origin":"deterministic","confidence":0.75,"dst":{"path":"abs:/.../S07E03-04 - ...mp4"}, "reason": "Overlap at 04; deterministic suggested range"}], "anthology": true, "disambiguation": null}
+  ],
+  "notes": [
+    "Deterministic preferred when non-ambiguous.",
+    "LLM invoked only after interval_simplify()."
+  ]
+}
