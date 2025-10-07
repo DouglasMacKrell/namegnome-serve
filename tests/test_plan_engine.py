@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from namegnome_serve.core.plan_engine import PlanEngine
+from namegnome_serve.core.plan_review import PlanReviewSourceInput
 from namegnome_serve.routes.schemas import MediaFile, PlanItem, SourceRef
 
 
@@ -36,6 +37,11 @@ async def test_plan_engine_returns_deterministic_plan() -> None:
     assert result[0].reason == "deterministic"
     deterministic.map_media_file.assert_awaited_once_with(media_file, "tv")
     fuzzy.generate_tv_plan.assert_not_called()
+
+    inputs = await engine.generate_plan_inputs(media_file, "tv", provider_candidates=[])
+    assert isinstance(inputs, PlanReviewSourceInput)
+    assert len(inputs.deterministic) == 1
+    assert inputs.llm == []
 
 
 @pytest.mark.asyncio
@@ -71,6 +77,13 @@ async def test_plan_engine_invokes_llm_for_anthology() -> None:
     assert [c["id"] for c in llm_candidates] == ["a", "dup", "b"]
     assert llm_candidates[0]["seasonNumber"] == 1
     assert llm_candidates[1]["number"] == 2
+
+    inputs = await engine.generate_plan_inputs(
+        media_file, "tv", provider_candidates=provider_candidates
+    )
+    assert isinstance(inputs, PlanReviewSourceInput)
+    assert inputs.deterministic == []
+    assert inputs.llm == ["llm_result"]
 
 
 @pytest.mark.asyncio

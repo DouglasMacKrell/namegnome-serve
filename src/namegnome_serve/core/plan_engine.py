@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from namegnome_serve.core.episode_fetcher import EpisodeCandidateFetcher
+from namegnome_serve.core.plan_review import PlanReviewSourceInput
 from namegnome_serve.routes.schemas import MediaFile, PlanItem
 
 
@@ -33,26 +34,56 @@ class PlanEngine:
         media_type: str,
         provider_candidates: list[dict[str, Any]] | None = None,
     ) -> list[PlanItem]:
+        inputs = await self.generate_plan_inputs(
+            media_file, media_type, provider_candidates=provider_candidates
+        )
+
+        if inputs.deterministic:
+            return list(inputs.deterministic)
+        return list(inputs.llm)
+
+    async def generate_plan_inputs(
+        self,
+        media_file: MediaFile,
+        media_type: str,
+        provider_candidates: list[dict[str, Any]] | None = None,
+    ) -> PlanReviewSourceInput:
         deterministic_plan = await self._deterministic.map_media_file(
             media_file, media_type
         )
 
-        if deterministic_plan:
-            return [deterministic_plan]
+        if deterministic_plan is not None:
+            return PlanReviewSourceInput(
+                media_file=media_file,
+                deterministic=[deterministic_plan],
+                llm=[],
+            )
 
         if media_type != "tv":
-            return []
+            return PlanReviewSourceInput(
+                media_file=media_file,
+                deterministic=[],
+                llm=[],
+            )
 
         candidates = provider_candidates
         if not candidates and self._episode_fetcher:
             candidates = await self._episode_fetcher.fetch(media_file)
 
         if not candidates:
-            return []
+            return PlanReviewSourceInput(
+                media_file=media_file,
+                deterministic=[],
+                llm=[],
+            )
 
-        normalized_candidates = self._prepare_tv_candidates(candidates)
+        normalized_candidates = self._prepare_tv_candidates(list(candidates))
         plans = self._fuzzy.generate_tv_plan(media_file, normalized_candidates)
-        return cast(list[PlanItem], plans)
+        return PlanReviewSourceInput(
+            media_file=media_file,
+            deterministic=[],
+            llm=cast(list[PlanItem], plans),
+        )
 
     @staticmethod
     def _prepare_tv_candidates(
