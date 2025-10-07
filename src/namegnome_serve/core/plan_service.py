@@ -16,7 +16,7 @@ from namegnome_serve.core.plan_review import (
     PlanReviewSourceInput,
     build_plan_review,
 )
-from namegnome_serve.routes.schemas import MediaFile
+from namegnome_serve.routes.schemas import MediaFile, ScanResult
 
 
 def create_plan_engine(
@@ -70,6 +70,42 @@ async def build_plan_review_payload(
     return build_plan_review(
         media_type=media_type,
         sources=sources,
+        plan_id=plan_id,
+        scan_id=scan_id,
+        source_fingerprint=source_fingerprint,
+        generated_at=generated_at,
+    )
+
+
+async def plan_scan_result(
+    *,
+    engine: PlanEngine,
+    scan_result: ScanResult,
+    candidate_map: dict[str, Sequence[dict[str, Any]]] | None = None,
+    plan_id: str | None = None,
+    scan_id: str | None = None,
+    source_fingerprint: str | None = None,
+    generated_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Convenience helper to produce a PlanReview from a ScanResult."""
+
+    items: list[tuple[MediaFile, Sequence[dict[str, Any]] | None]] = []
+    candidates_lookup = candidate_map or {}
+
+    for media_file in scan_result.files:
+        key = str(media_file.path)
+        raw_candidates = candidates_lookup.get(key)
+        prepared_candidates = (
+            [dict(candidate) for candidate in raw_candidates]
+            if raw_candidates
+            else None
+        )
+        items.append((media_file, prepared_candidates))
+
+    return await build_plan_review_payload(
+        engine=engine,
+        media_type=scan_result.media_type,
+        items=items,
         plan_id=plan_id,
         scan_id=scan_id,
         source_fingerprint=source_fingerprint,

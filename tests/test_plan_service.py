@@ -10,7 +10,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from namegnome_serve.core.plan_engine import PlanEngine
-from namegnome_serve.routes.schemas import MediaFile, PlanItem, SourceRef
+from namegnome_serve.core.plan_review import PlanReviewSourceInput
+from namegnome_serve.routes.schemas import MediaFile, PlanItem, ScanResult, SourceRef
 
 
 class DummyDeterministic:
@@ -158,3 +159,110 @@ async def test_build_plan_review_payload_aggregates_origins() -> None:
         "/tv/ShowA/S01E01.mkv",
         "/tv/ShowB/S02E05-E06.mkv",
     }
+
+
+@pytest.mark.asyncio
+async def test_plan_scan_result_returns_plan_review() -> None:
+    from namegnome_serve.core.plan_service import plan_scan_result
+
+    class FakePlanEngine:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, Sequence[dict[str, object]] | None]] = []
+
+        async def generate_plan_inputs(
+            self,
+            media_file: MediaFile,
+            media_type: str,
+            provider_candidates: Sequence[dict[str, object]] | None = None,
+        ) -> PlanReviewSourceInput:
+            self.calls.append((str(media_file.path), provider_candidates))
+
+            if "S01E01" in str(media_file.path):
+                return PlanReviewSourceInput(
+                    media_file=media_file,
+                    deterministic=[
+                        PlanItem(
+                            src_path=media_file.path,
+                            dst_path=Path(
+                                "/library/ShowA/Season 01/ShowA - S01E01.mkv"
+                            ),
+                            reason="deterministic",
+                            confidence=1.0,
+                            sources=[SourceRef(provider="tvdb", id="a1")],
+                        )
+                    ],
+                    llm=[],
+                )
+
+            return PlanReviewSourceInput(
+                media_file=media_file,
+                deterministic=[],
+                llm=[
+                    PlanItem(
+                        src_path=media_file.path,
+                        dst_path=Path(
+                            "/library/ShowB/Season 02/"
+                            "ShowB - S02E05-E06 - Double Episode.mkv"
+                        ),
+                        reason="llm",
+                        confidence=0.72,
+                        sources=[SourceRef(provider="tmdb", id="b1")],
+                        warnings=["anthology_guess"],
+                    )
+                ],
+            )
+
+    engine = FakePlanEngine()
+
+    media_files = [
+        MediaFile(
+            path=Path("/tv/ShowA/S01E01.mkv"),
+            size=1024,
+            mtime=0,
+            parsed_title="ShowA",
+            parsed_season=1,
+            parsed_episode=1,
+        ),
+        MediaFile(
+            path=Path("/tv/ShowB/S02E05-E06.mkv"),
+            size=2048,
+            mtime=0,
+            parsed_title="ShowB",
+            parsed_season=2,
+            parsed_episode=5,
+            anthology_candidate=True,
+        ),
+    ]
+
+    scan_result = ScanResult(
+        root_path=Path("/tv"),
+        media_type="tv",
+        files=media_files,
+        total_size=sum(file.size for file in media_files),
+        file_count=len(media_files),
+    )
+
+    candidates = {
+        "/tv/ShowB/S02E05-E06.mkv": [
+            {"id": "cand1", "seasonNumber": 2, "number": 5},
+            {"id": "cand2", "seasonNumber": 2, "number": 6},
+        ]
+    }
+
+    review = await plan_scan_result(
+        engine=engine,
+        scan_result=scan_result,
+        plan_id="pln_scan",
+        scan_id="scan_input",
+        candidate_map=candidates,
+        generated_at=datetime(2025, 1, 3, tzinfo=UTC),
+    )
+
+    assert review["plan_id"] == "pln_scan"
+    assert review["scan_id"] == "scan_input"
+    assert review["summary"]["by_origin"] == {"deterministic": 1, "llm": 1}
+    assert review["summary"]["total_items"] == 2
+    assert engine.calls[0][0] == "/tv/ShowA/S01E01.mkv"
+    assert engine.calls[1][0] == "/tv/ShowB/S02E05-E06.mkv"
+    assert len(engine.calls[0][1] or []) == 0
+    assert len(engine.calls[1][1] or []) == 2
