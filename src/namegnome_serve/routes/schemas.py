@@ -39,7 +39,15 @@ class SourceRef(BaseModel):
         id: Provider-specific entity ID
     """
 
-    provider: Literal["tmdb", "tvdb", "musicbrainz", "anilist", "omdb"]
+    provider: Literal[
+        "tmdb",
+        "tvdb",
+        "musicbrainz",
+        "anilist",
+        "omdb",
+        "theaudiodb",
+        "tvmaze",
+    ]
     id: str
 
     model_config = {"frozen": True}
@@ -52,11 +60,13 @@ class MediaFile(BaseModel):
         path: Absolute or relative path to the file
         size: File size in bytes
         hash: Optional SHA-256 hash (if --with-hash enabled)
-        parsed_title: Extracted show/movie/artist name
+        parsed_title: Extracted show/movie/track name
         parsed_season: Season number (TV only)
         parsed_episode: Episode number (TV only)
         parsed_year: Year (movies/music)
         parsed_track: Track number (music only)
+        parsed_artist: Artist name (music only)
+        parsed_album: Album name (music only)
         needs_disambiguation: True if multiple provider matches possible
         anthology_candidate: True if file may contain multiple episodes
     """
@@ -69,6 +79,8 @@ class MediaFile(BaseModel):
     parsed_episode: int | None = None
     parsed_year: int | None = None
     parsed_track: int | None = None
+    parsed_artist: str | None = None
+    parsed_album: str | None = None
     needs_disambiguation: bool = False
     anthology_candidate: bool = False
 

@@ -161,13 +161,15 @@ Provider-first deterministic mapping with LLM assist for anthology/fuzzy cases.
 ### 🪜 Tickets
 
 #### 🌐 T3-01 — Provider Client Abstractions (HTTPX + Cache)
-- **Goal:** TMDB/TVDB/MusicBrainz lookups with retry/backoff and local cache.
+- **Goal:** TMDB/TVDB/MusicBrainz lookups with fallback providers for resilience.
 - **Steps:**
   1. Create `metadata/providers/base.py` interface; concrete `tmdb.py`, `tvdb.py`, `musicbrainz.py`.
-  2. Implement title+year search; fetch series/season/episodes; albums/tracks.
-  3. Add local cache (SQLite) keyed by `(provider, type, id | title+year)` with TTL.
-  4. Respect rate limits; exponential backoff on 429/5xx.
-- **Done When:** Known titles resolve to normalized entities from cache when repeated.
+  2. Add fallback providers: `omdb.py` (movies), `fanarttv.py` (artwork), `anidb.py` (anime).
+  3. Implement title+year search; fetch series/season/episodes; albums/tracks.
+  4. Add local cache (SQLite) keyed by `(provider, type, id | title+year)` with TTL.
+  5. Respect rate limits; exponential backoff on 429/5xx.
+  6. Fallback chain: TVDB→TVmaze for TV, TMDB→OMDb for movies, FanartTV for missing artwork.
+- **Done When:** Known titles resolve to normalized entities from cache when repeated; fallbacks activate on primary failures.
 
 #### 🧮 T3-02 — Deterministic Mapper
 - **Goal:** Map scan fields to provider entities without LLM when possible.
@@ -192,6 +194,101 @@ Provider-first deterministic mapping with LLM assist for anthology/fuzzy cases.
   1. Combine deterministic and LLM results into a single `Plan[]`.
   2. Include `sources[{provider,id}]`, confidence, and warnings.
   3. Serialize to stable JSON for TUI/CLI consumption.
+- **Acceptance Criteria (contract)**
+  1. Introduce **`PlanReview`** wrapper that normalizes the output for review.
+  2. Merge policy: prefer **deterministic** when non-ambiguous; use **LLM** for ambiguous cases; if both exist for the same source segment, keep **higher confidence** (Δ ≥ 0.1) else prefer deterministic and store the other in `alternatives[]` with warning `tie_breaker_deterministic_preferred`.
+  3. Provide **stable ordering** and **grouping**:
+    i. `items[]` ordered by `src.path` (case-insensitive, natural sort). Within a group: TV `(season, episode)`; Movies `(year, title)`; Music `(disc, track)`.
+    ii. `groups[]` cluster items by source file path with `rollup` metrics.
+  4. Include **summary** buckets (`by_origin`, `by_confidence`, counts, warnings, anthology/disambiguation counters).
+  5. **Confidence buckets**: `high ≥ 0.90`, `medium ≥ 0.70`, else `low`.
+  6. **Schema stability**: include `schema_version: "1.0"`; timestamps in **UTC ISO-8601** ending with `Z`; no string "null"; optional fields omitted or `null`.
+  7. Tests must assert **ordering**, **bucket counts**, **merge behavior**, and **byte-stable JSON** (excluding `generated_at`).
+
+---
+
+- 🧩 **Minimal Pydantic Model Sketch (optional)**
+  ```python
+  from pydantic import BaseModel
+  from typing import List, Literal, Optional, Dict, Any
+  from datetime import datetime
+
+  Origin = Literal["deterministic","llm"]
+  Bucket = Literal["high","medium","low"]
+  MediaType = Literal["tv","movie","music"]
+
+  class SourceRef(BaseModel):
+      provider: str
+      id: str
+      type: str
+
+  class EpisodeInfo(BaseModel):
+      season: int
+      episodes: List[int]
+      titles: List[str] = []
+      sort_index: List[int]
+
+  class DstInfo(BaseModel):
+      path: str
+      episode: Optional[EpisodeInfo] = None
+      movie: Optional[Dict[str, Any]] = None
+      track: Optional[Dict[str, Any]] = None
+
+  class AltItem(BaseModel):
+      origin: Origin
+      confidence: float
+      dst: DstInfo
+      reason: Optional[str] = None
+
+  class PlanItem(BaseModel):
+      id: str
+      origin: Origin
+      confidence: float
+      confidence_bucket: Bucket
+      src: Dict[str, Any]   # { path, segment{...} }
+      dst: DstInfo
+      sources: List[SourceRef] = []
+      warnings: List[str] = []
+      anthology: bool = False
+      disambiguation: Optional[Dict[str, Any]] = None
+      alternatives: List[AltItem] = []
+      explain: Optional[Dict[str, str]] = None
+
+  class GroupRollup(BaseModel):
+      count: int
+      confidence_min: float
+      confidence_max: float
+      warnings: List[str] = []
+
+  class PlanGroup(BaseModel):
+      group_key: str
+      src_file: Dict[str, Any]  # path,size,mtime,hash
+      items: List[PlanItem]
+      rollup: GroupRollup
+
+  class Summary(BaseModel):
+      total_items: int
+      by_origin: Dict[str, int]
+      by_confidence: Dict[str, int]
+      warnings: int
+      anthology_candidates: int
+      disambiguations_required: int
+
+  class PlanReview(BaseModel):
+      plan_id: str
+      schema_version: str
+      generated_at: datetime
+      scan_id: Optional[str] = None
+      source_fingerprint: Optional[str] = None
+      media_type: MediaType
+      summary: Summary
+      groups: List[PlanGroup]
+      items: List[PlanItem]
+      notes: List[str] = []
+  ````
+
+---
+
 - **Done When:** Plans render cleanly and round-trip through JSON schema tests.
 
 #### 🧰 T3-05 — SQLite Cache Schema & Migrations (Decision)
