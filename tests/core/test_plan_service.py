@@ -20,6 +20,7 @@ class DummyDeterministic:
 
     def __init__(self) -> None:
         self.map_media_file = AsyncMock(return_value=None)
+        self.map_anthology_segments = AsyncMock(return_value=[])
         self.tvdb = Mock()
         self.tvdb.search_series = AsyncMock(
             return_value=[{"id": 10, "name": "Show", "seriesName": "Show"}]
@@ -95,6 +96,7 @@ async def test_build_plan_review_payload_aggregates_origins() -> None:
         ),
         None,
     ]
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
 
     fuzzy = Mock()
     fuzzy.generate_tv_plan.return_value = [

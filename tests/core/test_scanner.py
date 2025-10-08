@@ -348,6 +348,19 @@ def test_scan_handles_complex_tv_filenames(tmp_path: Path) -> None:
         assert file.parsed_title is not None
         assert file.parsed_season is not None
         assert file.parsed_episode is not None
+        assert file.segments, "segments should be populated for TV files"
+
+    # Spot-check first file's segment tokens
+    paw_patrol = next(f for f in result.files if "Paw Patrol" in f.path.name)
+    assert [segment.model_dump() for segment in paw_patrol.segments] == [
+        {
+            "start": 4,
+            "end": 4,
+            "title_tokens": ["episode", "title"],
+            "raw_span": "E04",
+            "source": "filename",
+        }
+    ]
 
 
 def test_scan_handles_multi_episode_tv(tmp_path: Path) -> None:
@@ -365,4 +378,19 @@ def test_scan_handles_multi_episode_tv(tmp_path: Path) -> None:
     assert file.parsed_title == "Show"
     assert file.parsed_season == 3
     assert file.parsed_episode == 3  # Start episode
-    # Note: episode_end is not exposed in MediaFile schema yet (T2-03)
+    assert [segment.model_dump() for segment in file.segments] == [
+        {
+            "start": 3,
+            "end": 3,
+            "title_tokens": ["title1"],
+            "raw_span": "E03",
+            "source": "filename",
+        },
+        {
+            "start": 4,
+            "end": 4,
+            "title_tokens": ["title2"],
+            "raw_span": "E04",
+            "source": "filename",
+        },
+    ]

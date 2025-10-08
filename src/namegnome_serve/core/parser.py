@@ -10,6 +10,44 @@ import re
 from pathlib import Path
 from typing import Any, Literal
 
+_STOPWORDS = {
+    "the",
+    "and",
+    "a",
+    "an",
+    "of",
+    "in",
+    "to",
+    "for",
+    "with",
+}
+
+
+def _tokenize_title(text: str) -> list[str]:
+    """Tokenize a title into lowercase alphanumeric terms excluding stopwords."""
+
+    tokens = re.findall(r"[A-Za-z0-9']+", text or "")
+    return [
+        token.lower() for token in tokens if token and token.lower() not in _STOPWORDS
+    ]
+
+
+def _split_title_segments(text: str) -> list[str]:
+    """Split anthology title string into segments using common separators."""
+
+    if not text:
+        return []
+
+    normalized = text.strip()
+    if not normalized:
+        return []
+
+    if " & " in normalized:
+        return [part.strip() for part in normalized.split(" & ") if part.strip()]
+
+    # Fallback: return the entire title as a single segment
+    return [normalized]
+
 
 def _normalize_whitespace(text: str) -> str:
     """Normalize multiple spaces and special separators to single spaces."""
@@ -62,6 +100,7 @@ def _parse_tv_episode(
         "year": None,
         "needs_disambiguation": False,
         "anthology_candidate": False,
+        "segments": [],
     }
 
     # Normalize separators
@@ -151,6 +190,62 @@ def _parse_tv_episode(
     # (like Paw Patrol) naturally have long, descriptive episode titles
     # without being multi-segment anthology episodes. We rely on explicit
     # multi-episode ranges (E01-E02) or anthology keywords instead.
+
+    segments: list[dict[str, Any]] = []
+
+    start_episode = result.get("episode")
+    end_episode = result.get("episode_end") or start_episode
+    title_string = result.get("episode_title") or ""
+    title_parts = _split_title_segments(title_string)
+
+    if start_episode is not None and end_episode is not None:
+        span_count = max(end_episode - start_episode + 1, 1)
+
+        if title_parts and len(title_parts) == span_count:
+            for index, part in enumerate(title_parts):
+                episode_number = start_episode + index
+                segments.append(
+                    {
+                        "start": episode_number,
+                        "end": episode_number,
+                        "title_tokens": _tokenize_title(part),
+                        "raw_span": f"E{episode_number:02d}",
+                        "source": "filename",
+                    }
+                )
+        else:
+            raw_span = (
+                f"E{start_episode:02d}"
+                if end_episode == start_episode
+                else f"E{start_episode:02d}-E{end_episode:02d}"
+            )
+            segments.append(
+                {
+                    "start": start_episode,
+                    "end": end_episode,
+                    "title_tokens": _tokenize_title(title_string),
+                    "raw_span": raw_span,
+                    "source": "filename",
+                }
+            )
+            if title_parts and len(title_parts) != span_count:
+                result["needs_disambiguation"] = True
+    else:
+        inferred_source = (
+            "dirname" if result.get("title") == show_name_from_dir else "unknown"
+        )
+        fallback_tokens = _tokenize_title(title_string or result.get("title", ""))
+        segments.append(
+            {
+                "start": None,
+                "end": None,
+                "title_tokens": fallback_tokens,
+                "raw_span": "",
+                "source": inferred_source,
+            }
+        )
+
+    result["segments"] = segments
 
     return result
 

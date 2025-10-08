@@ -6,7 +6,7 @@ filter by extension based on media type, and collect filesystem metadata.
 
 import hashlib
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from namegnome_serve.core.constants import (
     MOVIE_EXTENSIONS,
@@ -83,6 +83,12 @@ def scan(
                 episode = parsed_data.get("episode")
                 year = parsed_data.get("year")
                 track = parsed_data.get("track")
+                artist = parsed_data.get("artist")
+                album = parsed_data.get("album")
+                raw_segments: Any = parsed_data.get("segments") or []
+                segments_data: list[Any] = (
+                    raw_segments if isinstance(raw_segments, list) else []
+                )
 
                 # Extract uncertainty flags
                 needs_disambiguation = parsed_data.get("needs_disambiguation", False)
@@ -98,8 +104,11 @@ def scan(
                     parsed_episode=int(episode) if episode is not None else None,
                     parsed_year=int(year) if year is not None else None,
                     parsed_track=int(track) if track is not None else None,
+                    parsed_artist=str(artist) if artist is not None else None,
+                    parsed_album=str(album) if album is not None else None,
                     needs_disambiguation=bool(needs_disambiguation),
                     anthology_candidate=bool(anthology_candidate),
+                    segments=segments_data if isinstance(segments_data, list) else [],
                 )
                 media_files.append(media_file)
 

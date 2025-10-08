@@ -39,6 +39,15 @@ def test_parse_tv_single_episode_basic() -> None:
     assert result["season"] == 7
     assert result["episode"] == 4
     assert result["episode_title"] == "Episode Title"
+    assert result["segments"] == [
+        {
+            "start": 4,
+            "end": 4,
+            "title_tokens": ["episode", "title"],
+            "raw_span": "E04",
+            "source": "filename",
+        }
+    ]
 
 
 def test_parse_tv_with_year() -> None:
@@ -52,6 +61,7 @@ def test_parse_tv_with_year() -> None:
     assert result["year"] == 2013
     assert result["season"] == 7
     assert result["episode"] == 4
+    assert result["segments"][0]["start"] == 4
 
 
 def test_parse_tv_multi_episode() -> None:
@@ -67,6 +77,22 @@ def test_parse_tv_multi_episode() -> None:
     assert result["episode_end"] == 4  # End episode
     assert "Title1" in result.get("episode_title", "")
     assert "Title2" in result.get("episode_title", "")
+    assert result["segments"] == [
+        {
+            "start": 3,
+            "end": 3,
+            "title_tokens": ["title1"],
+            "raw_span": "E03",
+            "source": "filename",
+        },
+        {
+            "start": 4,
+            "end": 4,
+            "title_tokens": ["title2"],
+            "raw_span": "E04",
+            "source": "filename",
+        },
+    ]
 
 
 def test_parse_tv_various_separators() -> None:
@@ -79,6 +105,7 @@ def test_parse_tv_various_separators() -> None:
     assert result1["title"] == "Show Name"
     assert result1["season"] == 1
     assert result1["episode"] == 5
+    assert result1["segments"][0]["start"] == 5
 
     # Underscores as separators
     path2 = Path("Show_Name_S01E05_Episode_Title.avi")
@@ -86,6 +113,7 @@ def test_parse_tv_various_separators() -> None:
     assert result2["title"] == "Show Name"
     assert result2["season"] == 1
     assert result2["episode"] == 5
+    assert result2["segments"][0]["title_tokens"] == ["episode", "title"]
 
 
 def test_parse_tv_no_episode_title() -> None:
@@ -99,6 +127,15 @@ def test_parse_tv_no_episode_title() -> None:
     assert result["season"] == 7
     assert result["episode"] == 4
     assert result.get("episode_title") is None or result.get("episode_title") == ""
+    assert result["segments"] == [
+        {
+            "start": 4,
+            "end": 4,
+            "title_tokens": [],
+            "raw_span": "E04",
+            "source": "filename",
+        }
+    ]
 
 
 def test_parse_tv_from_directory_path() -> None:
@@ -112,6 +149,7 @@ def test_parse_tv_from_directory_path() -> None:
     assert "Paw Patrol" in result["title"] or result["title"] == "Paw Patrol"
     assert result["season"] == 7
     assert result["episode"] == 4
+    assert result["segments"][0]["start"] == 4
 
 
 # ============================================================================

@@ -26,6 +26,7 @@ def _dummy_plan() -> PlanItem:
 async def test_plan_engine_returns_deterministic_plan() -> None:
     deterministic = AsyncMock()
     deterministic.map_media_file.return_value = _dummy_plan()
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
     fuzzy = Mock()
 
     engine = PlanEngine(deterministic, fuzzy)
@@ -48,6 +49,7 @@ async def test_plan_engine_returns_deterministic_plan() -> None:
 async def test_plan_engine_invokes_llm_for_anthology() -> None:
     deterministic = AsyncMock()
     deterministic.map_media_file.return_value = None
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
     fuzzy = Mock()
     fuzzy.generate_tv_plan.return_value = ["llm_result"]
 
@@ -90,6 +92,7 @@ async def test_plan_engine_invokes_llm_for_anthology() -> None:
 async def test_plan_engine_handles_missing_candidates() -> None:
     deterministic = AsyncMock()
     deterministic.map_media_file.return_value = None
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
     fuzzy = Mock()
     engine = PlanEngine(deterministic, fuzzy)
 
@@ -107,6 +110,7 @@ async def test_plan_engine_fetches_candidates_when_missing() -> None:
 
     deterministic = AsyncMock()
     deterministic.map_media_file.return_value = None
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
 
     episode_fetcher = AsyncMock()
     episode_fetcher.fetch.return_value = [
@@ -139,6 +143,40 @@ async def test_plan_engine_fetches_candidates_when_missing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_plan_engine_short_circuits_deterministic_anthology() -> None:
+    deterministic = AsyncMock()
+    deterministic.map_media_file.return_value = None
+    deterministic.map_anthology_segments = AsyncMock(return_value=[_dummy_plan()])
+    fuzzy = Mock()
+
+    engine = PlanEngine(deterministic, fuzzy)
+
+    media_file = MediaFile(
+        path="/tv/Show/S01E01-E02.mkv",
+        size=1,
+        mtime=0,
+        parsed_title="Show",
+        parsed_season=1,
+        anthology_candidate=True,
+        segments=[
+            {
+                "start": 1,
+                "end": 2,
+                "title_tokens": ["segment"],
+                "raw_span": "E01-E02",
+                "source": "filename",
+            }
+        ],
+    )
+
+    plan = await engine.generate_plan(media_file, "tv")
+
+    assert plan and plan[0].reason == "deterministic"
+    deterministic.map_anthology_segments.assert_awaited_once_with(media_file)
+    fuzzy.generate_tv_plan.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_plan_engine_default_fetcher_end_to_end() -> None:
     """Default engine wiring should fetch from TVDB and route through LLM."""
 
@@ -153,6 +191,7 @@ async def test_plan_engine_default_fetcher_end_to_end() -> None:
 
     deterministic = AsyncMock()
     deterministic.map_media_file.return_value = None
+    deterministic.map_anthology_segments = AsyncMock(return_value=[])
 
     tvdb = AsyncMock()
     tvdb.search_series.return_value = [

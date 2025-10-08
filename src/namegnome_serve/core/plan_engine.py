@@ -48,6 +48,19 @@ class PlanEngine:
         media_type: str,
         provider_candidates: list[dict[str, Any]] | None = None,
     ) -> PlanReviewSourceInput:
+        if media_type == "tv":
+            anthology_mapper = getattr(
+                self._deterministic, "map_anthology_segments", None
+            )
+            if callable(anthology_mapper):
+                anthology_plan = await anthology_mapper(media_file)
+                if anthology_plan:
+                    return PlanReviewSourceInput(
+                        media_file=media_file,
+                        deterministic=list(anthology_plan),
+                        llm=[],
+                    )
+
         deterministic_plan = await self._deterministic.map_media_file(
             media_file, media_type
         )

@@ -47,6 +47,7 @@ class StubDeterministic:
 
     def __init__(self) -> None:
         self.map_media_file = AsyncMock(return_value=None)
+        self.map_anthology_segments = AsyncMock(return_value=[])
         self.tvdb = Mock()
         self.tvdb.search_series = AsyncMock(
             return_value=[{"id": 1234, "name": "Paw Patrol"}]

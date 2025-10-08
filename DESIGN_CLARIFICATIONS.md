@@ -56,6 +56,9 @@ This document answers concerns and questions raised during assessment.
   * Convert groups to integer intervals, sort, check adjacency.
   * Resolve overlap boundaries (e.g., `03-04` & `04-05` → `03`, `04-05`).
   * Collapse to singletons when titles indicate a single canonical episode.
+  * Implemented via `core/anthology.py::interval_simplify`, which consumes
+    scanner-produced `segments` and TVDB episode lists before falling back to the
+    LangChain runnable.
 * **LLM assist:** only when ambiguity remains; supply provider episode list and first-pass groups; require JSON schema output.
 
 **Tickets:** T3-06 added to Sprint 3.

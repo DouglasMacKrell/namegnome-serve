@@ -12,7 +12,33 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
+
+
+class EpisodeSegment(BaseModel):
+    """Segment metadata for anthology-aware TV parsing."""
+
+    start: int | None = None
+    end: int | None = None
+    title_tokens: list[str] = Field(default_factory=list)
+    raw_span: str | None = None
+    source: Literal["filename", "dirname", "both", "unknown"] = "unknown"
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "EpisodeSegment":
+        if (
+            isinstance(self.start, int)
+            and isinstance(self.end, int)
+            and self.end < self.start
+        ):
+            raise ValueError("segment end cannot be less than start")
+        return self
 
 
 class ConfidenceLevel(str, Enum):
@@ -83,6 +109,7 @@ class MediaFile(BaseModel):
     parsed_album: str | None = None
     needs_disambiguation: bool = False
     anthology_candidate: bool = False
+    segments: list[EpisodeSegment] = Field(default_factory=list)
 
     @field_serializer("path")
     def serialize_path(self, path: Path) -> str:
