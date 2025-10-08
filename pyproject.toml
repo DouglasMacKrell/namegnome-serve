@@ -1,6 +1,6 @@
 [project]
 name = "namegnome-serve"
-version = "0.1.0"
+version = "0.3.0"
 description = "Local-first media file renaming service powered by LangChain, LangServe, and Ollama"
 authors = [
     {name = "Douglas MacKrell",email = "your@email.com"}
