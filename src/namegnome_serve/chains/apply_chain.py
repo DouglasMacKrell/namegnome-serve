@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 import structlog
-from rich.console import Console  # type: ignore[import-not-found]
-from rich.progress import (  # type: ignore[import-not-found]
+from rich.console import Console  # type: ignore
+from rich.progress import (  # type: ignore
     BarColumn,
     Progress,
     SpinnerColumn,
