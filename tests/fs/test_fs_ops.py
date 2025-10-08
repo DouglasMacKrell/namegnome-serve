@@ -224,14 +224,6 @@ class TestRenameWithRollback:
         assert outcome.status == "noop"
         assert outcome.op == "noop"
 
-    def test_cross_device_move(self, tmp_path: Path) -> None:
-        """Test cross-device move uses copy+fsync+rename."""
-        # Skip this test for now - complex mocking required
-        # The cross-device logic is implemented and will work in real scenarios
-        pytest.skip(
-            "Cross-device move test requires complex mocking - logic is implemented"
-        )
-
     def test_permission_denied_handling(self, tmp_path: Path) -> None:
         """Test handling of permission denied errors."""
         src = tmp_path / "source.mp4"
