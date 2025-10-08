@@ -1,117 +1,78 @@
-"""SQLite-based cache for provider responses with TTL support.
+"""SQLite-backed provider cache with schema migrations."""
 
-This cache layer:
-- Stores API responses to reduce redundant requests
-- Respects TTL (Time To Live) for automatic expiration
-- Provides thread-safe async operations
-- Tracks cache statistics (hits, misses)
-- Persists to disk for durability across restarts
-"""
+from __future__ import annotations
 
 import hashlib
 import json
 import time
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 import aiosqlite
+
+from namegnome_serve.cache.migrations import ensure_connection_migrated
+from namegnome_serve.cache.paths import resolve_cache_db_path
 
 
 class ProviderCache:
     """Async SQLite cache for provider API responses."""
 
-    def __init__(self, db_path: str = ".cache/providers.db", default_ttl: int = 3600):
+    def __init__(
+        self,
+        db_path: str | Path | None = None,
+        default_ttl: int = 3600,
+    ) -> None:
         """Initialize the provider cache.
 
         Args:
-            db_path: Path to SQLite database file (":memory:" for in-memory)
-            default_ttl: Default TTL in seconds (default: 1 hour)
+            db_path: Path to SQLite database file (\":memory:\" for in-memory). When
+                omitted, resolves to `NAMEGNOME_CACHE_PATH` or `./.cache/namegnome.db`.
+            default_ttl: Default TTL in seconds (default: 1 hour).
         """
-        self.db_path = db_path
+
         self.default_ttl = default_ttl
+        self._db_path = resolve_cache_db_path(db_path)
         self._db: aiosqlite.Connection | None = None
         self._hits = 0
         self._misses = 0
 
     async def _get_connection(self) -> aiosqlite.Connection:
-        """Get or create database connection."""
+        """Get or create the cache database connection."""
+
         if self._db is None:
-            self._db = await aiosqlite.connect(self.db_path)
-            await self._create_tables()
+            self._db = await aiosqlite.connect(self._db_path)
+            await ensure_connection_migrated(self._db)
         return self._db
 
-    async def _create_tables(self) -> None:
-        """Create cache tables if they don't exist."""
-        if self._db is None:
-            return
-
-        await self._db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS cache (
-                cache_key TEXT PRIMARY KEY,
-                provider TEXT NOT NULL,
-                data TEXT NOT NULL,
-                expires_at REAL NOT NULL,
-                created_at REAL NOT NULL
-            )
-            """
-        )
-        await self._db.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_provider ON cache(provider)
-            """
-        )
-        await self._db.execute(
-            """
-            CREATE INDEX IF NOT EXISTS idx_expires ON cache(expires_at)
-            """
-        )
-        await self._db.commit()
-
     def _generate_key(self, provider: str, params: dict[str, Any]) -> str:
-        """Generate consistent cache key from provider and params.
+        """Generate consistent cache key from provider and params."""
 
-        Args:
-            provider: Provider name
-            params: Query parameters (will be sorted for consistency)
-
-        Returns:
-            Cache key (hex digest)
-        """
-        # Sort params for consistency
         sorted_params = json.dumps(params, sort_keys=True)
         key_string = f"{provider}:{sorted_params}"
         return hashlib.sha256(key_string.encode()).hexdigest()
 
     async def get(self, provider: str, key: str) -> dict[str, Any] | None:
-        """Get cached data if available and not expired.
+        """Get cached data if available and not expired."""
 
-        Args:
-            provider: Provider name
-            key: Cache key (or use _generate_key for params)
-
-        Returns:
-            Cached data dict, or None if not found/expired
-        """
         db = await self._get_connection()
         current_time = time.time()
 
-        cursor = await db.execute(
+        async with db.execute(
             """
-            SELECT data, expires_at FROM cache
+            SELECT data FROM cache_entries
             WHERE cache_key = ? AND provider = ? AND expires_at > ?
             """,
             (key, provider, current_time),
-        )
-        row = await cursor.fetchone()
+        ) as cursor:
+            row = await cursor.fetchone()
 
         if row is None:
             self._misses += 1
             return None
 
         self._hits += 1
-        data_json, _ = row
-        result: dict[str, Any] = json.loads(data_json)
-        return result
+        data_json = row[0]
+        return cast(dict[str, Any], json.loads(data_json))
 
     async def set(
         self,
@@ -120,24 +81,18 @@ class ProviderCache:
         data: dict[str, Any],
         ttl: int | None = None,
     ) -> None:
-        """Store data in cache with TTL.
+        """Store data in cache with TTL."""
 
-        Args:
-            provider: Provider name
-            key: Cache key
-            data: Data to cache (must be JSON-serializable)
-            ttl: Time to live in seconds (None = use default_ttl)
-        """
         db = await self._get_connection()
-        ttl = ttl if ttl is not None else self.default_ttl
+        ttl_seconds = ttl if ttl is not None else self.default_ttl
 
         current_time = time.time()
-        expires_at = current_time + ttl
+        expires_at = current_time + ttl_seconds
         data_json = json.dumps(data)
 
         await db.execute(
             """
-            INSERT OR REPLACE INTO cache
+            INSERT OR REPLACE INTO cache_entries
             (cache_key, provider, data, expires_at, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
@@ -147,23 +102,24 @@ class ProviderCache:
 
     async def clear(self) -> None:
         """Clear all cache entries."""
+
         db = await self._get_connection()
-        await db.execute("DELETE FROM cache")
+        await db.execute("DELETE FROM cache_entries")
         await db.commit()
 
     async def cleanup_expired(self) -> None:
         """Remove expired cache entries."""
+
         db = await self._get_connection()
         current_time = time.time()
-        await db.execute("DELETE FROM cache WHERE expires_at <= ?", (current_time,))
+        await db.execute(
+            "DELETE FROM cache_entries WHERE expires_at <= ?", (current_time,)
+        )
         await db.commit()
 
     def get_stats(self) -> dict[str, int | float]:
-        """Get cache statistics.
+        """Get cache statistics."""
 
-        Returns:
-            Dict with hits, misses, total (int), and hit_rate (float)
-        """
         total = self._hits + self._misses
         hit_rate = (self._hits / total * 100) if total > 0 else 0.0
 
@@ -176,15 +132,18 @@ class ProviderCache:
 
     async def close(self) -> None:
         """Close database connection."""
+
         if self._db is not None:
             await self._db.close()
             self._db = None
 
-    async def __aenter__(self) -> "ProviderCache":
+    async def __aenter__(self) -> ProviderCache:
         """Async context manager entry."""
+
         await self._get_connection()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
+
         await self.close()

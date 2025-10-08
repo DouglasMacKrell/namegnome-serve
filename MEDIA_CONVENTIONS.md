@@ -89,6 +89,21 @@ Paw Patrol-S07E04-Mighty Pups Charged Up Pups Vs Three Super Baddies.mp4
 - Input episode numbering in anthology mode is **never trusted**; titles and provider adjacency are the ground truth.
 - Only accept and match input numbering to the API response if no title is included in the file name!
 
+### Segment Metadata
+During scan, TV files produce a list of `segments` embedded in `MediaFile`. Each
+segment includes:
+
+| Field          | Description                                                |
+|----------------|------------------------------------------------------------|
+| `start`, `end` | Inclusive episode numbers extracted from the filename       |
+| `title_tokens` | Lowercase tokenised words taken from the segment title     |
+| `raw_span`     | Human-readable span such as `E01` or `E01-E02`             |
+| `source`       | `"filename"`, `"dirname"`, `"both"`, or `"unknown"`        |
+
+> The deterministic anthology simplifier uses these segments plus provider titles to
+> normalise overlaps, clamp out-of-bounds ranges, and collapse singletons before any
+> LLM call is made.
+
 
 Examples:
 ```
@@ -137,15 +152,16 @@ Daft Punk/Discovery (2001)/Track02 - Aerodynamic.mp3
 
 ---
 
-## 6. Anthology Edge Cases (Expanded)
+## 6. Anthology Handling (Deterministic + LLM)
 
 **Why this matters:** Anthology series often break strict sequential numbering. Subtitles may be truncated, repeated once, or omitted. Titles must drive episode mapping.
 
 **Rules:**
-- Input episode numbers are unreliable; **titles + provider adjacency** are authoritative.
-- The LLM may need to perform **multi‑pass planning**:
-  - First pass: generate preliminary episode groups based on naive parsing.
-  - Second pass: correct groupings using API adjacency and fuzzy title matching.
+- **Deterministic interval simplification** ensures overlaps/gaps are resolved before
+  any LLM call. Files with confidence ≥ 0.9 emit final plan items immediately.
+- **Fallback to LLM** only happens when unresolved overlaps, gaps, or ambiguous title
+  matches remain. The LLM receives the normalised `segments` plus provider episode
+  lists and returns refined spans with warnings.
 
 **Example:**
 ```

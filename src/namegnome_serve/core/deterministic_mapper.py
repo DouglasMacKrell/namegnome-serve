@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+from namegnome_serve.core.anthology import interval_simplify
 from namegnome_serve.metadata.providers import (
     MusicBrainzProvider,
     TheAudioDBProvider,
@@ -11,6 +12,7 @@ from namegnome_serve.metadata.providers import (
     TVMazeProvider,
 )
 from namegnome_serve.routes.schemas import (
+    EpisodeSegment,
     MediaFile,
     PlanItem,
     SourceRef,
@@ -58,12 +60,11 @@ class DeterministicMapper:
         """
         if media_type == "tv":
             return await self._map_tv_show(media_file)
-        elif media_type == "movie":
+        if media_type == "movie":
             return await self._map_movie(media_file)
-        elif media_type == "music":
+        if media_type == "music":
             return await self._map_music(media_file)
-        else:
-            return None
+        return None
 
     @staticmethod
     def _extract_year(value: Any) -> int | None:
@@ -437,6 +438,141 @@ class DeterministicMapper:
             warnings.append(f"TheAudioDB fallback failed: {str(e)}")
 
         return None
+
+    async def map_anthology_segments(self, media_file: MediaFile) -> list[PlanItem]:
+        """Attempt deterministic anthology mapping using TVDB episodes."""
+
+        if not media_file.anthology_candidate or not media_file.segments:
+            return []
+        if not media_file.parsed_title or not media_file.parsed_season:
+            return []
+
+        series_results = await self._lookup_tvdb_series(media_file.parsed_title)
+        if not series_results or len(series_results) != 1:
+            return []
+
+        series = series_results[0]
+        series_id = series.get("id")
+        episodes = await self._fetch_tvdb_episodes(series_id)
+        if not episodes:
+            return []
+
+        simplify = interval_simplify(media_file, episodes)
+        if simplify.punt_to_llm or simplify.confidence < 0.9:
+            media_file.needs_disambiguation = True
+            return []
+
+        plan_items = self._build_anthology_plan_items(
+            media_file=media_file,
+            series=series,
+            episodes=episodes,
+            confidence=simplify.confidence,
+            warnings=simplify.warnings,
+            segments=simplify.segments,
+        )
+        return plan_items
+
+    async def _lookup_tvdb_series(self, title: str) -> list[dict[str, Any]] | None:
+        try:
+            return await self.tvdb.search_series(title)
+        except Exception:
+            return None
+
+    async def _fetch_tvdb_episodes(self, series_id: Any) -> list[dict[str, Any]]:
+        if series_id is None:
+            return []
+        try:
+            return await self.tvdb.get_series_episodes(series_id)
+        except Exception:
+            return []
+
+    def _build_anthology_plan_items(
+        self,
+        *,
+        media_file: MediaFile,
+        series: dict[str, Any],
+        episodes: list[dict[str, Any]],
+        confidence: float,
+        warnings: list[str],
+        segments: list[EpisodeSegment],
+    ) -> list[PlanItem]:
+        season = media_file.parsed_season
+        if season is None:
+            return []
+
+        show_name = str(
+            series.get("name")
+            or series.get("seriesName")
+            or media_file.parsed_title
+            or "Unknown Series"
+        )
+
+        series_id = series.get("id")
+        episode_lookup: dict[int, dict[str, Any]] = {}
+        for episode in episodes:
+            season_number = (
+                episode.get("seasonNumber")
+                or episode.get("SeasonNumber")
+                or episode.get("airedSeason")
+                or episode.get("season")
+            )
+            number = (
+                episode.get("number")
+                or episode.get("episodeNumber")
+                or episode.get("airedEpisodeNumber")
+            )
+            if season_number is None or number is None:
+                continue
+            if int(season_number) != season:
+                continue
+            episode_lookup[int(number)] = episode
+
+        plan_items: list[PlanItem] = []
+        for segment in segments:
+            start = getattr(segment, "start", None)
+            end = getattr(segment, "end", None)
+            if start is None or end is None:
+                continue
+
+            episode_numbers = list(range(start, end + 1))
+            titles: list[str] = []
+            for number in episode_numbers:
+                episode_data = episode_lookup.get(number)
+                if not episode_data:
+                    continue
+                title = (
+                    episode_data.get("name")
+                    or episode_data.get("episodeName")
+                    or episode_data.get("title")
+                )
+                if title:
+                    titles.append(str(title))
+
+            combined_title = " & ".join(titles) if titles else None
+            dst_path = self._build_tv_path(
+                show_name,
+                season,
+                start,
+                combined_title,
+                episode_end=end,
+            )
+            reason = (
+                f"Deterministic anthology span S{season:02d}E{start:02d}-E{end:02d}"
+                if end != start
+                else f"Deterministic anthology match S{season:02d}E{start:02d}"
+            )
+            plan_items.append(
+                PlanItem(
+                    src_path=media_file.path,
+                    dst_path=dst_path,
+                    reason=reason,
+                    confidence=confidence,
+                    sources=[SourceRef(provider="tvdb", id=str(series_id))],
+                    warnings=list(warnings),
+                )
+            )
+
+        return plan_items
 
     @staticmethod
     def _build_tv_path(

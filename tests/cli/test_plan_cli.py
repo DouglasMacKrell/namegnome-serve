@@ -13,6 +13,21 @@ from namegnome_serve.routes.schemas import MediaFile, ScanResult
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def stub_cache_migrations(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "cache.db"
+
+    monkeypatch.setattr(
+        "namegnome_serve.cli.plan.resolve_cache_db_path",
+        lambda path=None: str(target),
+    )
+
+    async def fake_apply(_: str) -> None:
+        return None
+
+    monkeypatch.setattr("namegnome_serve.cli.plan.apply_migrations", fake_apply)
+
+
 @pytest.fixture()
 def stub_scan(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_scan(paths: list[Path], media_type: str) -> ScanResult:

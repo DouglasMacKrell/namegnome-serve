@@ -17,6 +17,8 @@ else:  # pragma: no cover - runtime fallback for typing
     typer = importlib.import_module("typer")
     TyperType = Any
 
+from namegnome_serve.cache.migrations import apply_migrations
+from namegnome_serve.cache.paths import resolve_cache_db_path
 from namegnome_serve.chains.plan_chain import PlanChain
 from namegnome_serve.core.plan_service import create_plan_engine
 from namegnome_serve.core.scanner import scan
@@ -59,6 +61,17 @@ def generate_plan(  # noqa: D401
     verbose: VerboseFlag = False,
 ) -> None:
     """Run planning for a directory and print the PlanReview payload."""
+
+    try:
+        cache_path = resolve_cache_db_path(None)
+        asyncio.run(apply_migrations(cache_path))
+    except Exception as exc:  # pragma: no cover - defensive
+        typer.secho(
+            f"Failed to initialize cache schema: {exc}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1) from exc
 
     try:
         engine = create_plan_engine()

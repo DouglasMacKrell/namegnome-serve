@@ -75,6 +75,53 @@ class TestDeterministicMapper:
         assert result.sources[0].provider == "tvdb"
 
     @pytest.mark.asyncio
+    async def test_map_anthology_segments_short_circuits(self) -> None:
+        mock_tvdb = AsyncMock()
+        mock_tvdb.search_series.return_value = [
+            {
+                "id": "12345",
+                "name": "Anthology Show",
+            }
+        ]
+        mock_tvdb.get_series_episodes.return_value = [
+            {
+                "id": "ep1",
+                "name": "Segment One",
+                "seasonNumber": 1,
+                "number": 1,
+            }
+        ]
+
+        mapper = DeterministicMapper(tmdb=Mock(), tvdb=mock_tvdb, musicbrainz=Mock())
+
+        media_file = MediaFile(
+            path="/tv/Anthology Show - S01E01.mkv",
+            size=1,
+            mtime=0,
+            parsed_title="Anthology Show",
+            parsed_season=1,
+            parsed_episode=1,
+            anthology_candidate=True,
+            segments=[
+                {
+                    "start": 1,
+                    "end": 1,
+                    "title_tokens": ["segment", "one"],
+                    "raw_span": "E01",
+                    "source": "filename",
+                }
+            ],
+        )
+
+        plans = await mapper.map_anthology_segments(media_file)
+
+        assert len(plans) == 1
+        plan = plans[0]
+        assert plan.reason.startswith("Deterministic anthology")
+        assert plan.sources[0].provider == "tvdb"
+        assert "Segment One" in str(plan.dst_path)
+
+    @pytest.mark.asyncio
     async def test_map_movie_exact_match(self):
         """Test mapping movie with exact title and year match."""
         # Mock TMDB provider

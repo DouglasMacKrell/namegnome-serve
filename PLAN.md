@@ -78,6 +78,7 @@
 
 - **Provider‑first correctness:** Treat TMDB/TVDB/MusicBrainz as the canonical source matched by Plex; file names must align with provider records.
 - **Deterministic first, LLM second:** Rules and provider data drive decisions; the LLM proposes fuzzy matches or anthology splits only where deterministic mapping isn’t possible.
+  - `interval_simplify` (T3-06) normalises anthology `segments` before we consider any LLM call. It clamps out-of-bounds spans, collapses singletons using provider titles, and only punts to the LLM when overlap/gap warnings remain or confidence drops below 0.9.
 - **Explicit over implicit:** Require users to state media type (`tv`, `movie`, `music`) and provide clarifying inputs when prompted.
 - **Streaming‑safe JSON:** All chain outputs must be valid JSON that can stream through LangChain/LangServe.
 - **Reversible operations:** Every apply emits a rollback plan.
